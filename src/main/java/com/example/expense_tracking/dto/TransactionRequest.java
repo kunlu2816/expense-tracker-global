@@ -22,5 +22,5 @@ public class TransactionRequest {
     private String description;
     private LocalDateTime transactionDate;
 
-    private String accountNumber;
+    private Long bankConfigId;
 }

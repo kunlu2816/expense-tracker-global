@@ -37,6 +37,10 @@ public class Transaction {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Column(name = "currency")
+    private String currency = "GBP";
+
+    @Column(name = "description")
     private String description;
 
     @Column(name = "transaction_date", nullable = false)

@@ -1,9 +1,9 @@
 spring:
   application:
-    name: expense-tracking
+    name: expense-tracking-global
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
+    url: jdbc:postgresql://localhost:5433/postgres
     username: postgres
     password: MinhHieu2816@
     driver-class-name: org.postgresql.Driver

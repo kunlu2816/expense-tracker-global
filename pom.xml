@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>expense-tracking</artifactId>
+	<artifactId>expense-tracking-global</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>expense-tracking</name>
+	<name>expense-tracking-global</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
@@ -128,6 +128,25 @@
 						</exclude>
 					</excludes>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-maven-plugin</artifactId>
+				<configuration>
+					<url>jdbc:postgresql://localhost:5433/postgres</url>
+					<user>postgres</user>
+					<password>MinhHieu2816@</password>
+					<schemas>
+						<schema>public</schema>
+					</schemas>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.postgresql</groupId>
+						<artifactId>postgresql</artifactId>
+						<version>${postgresql.version}</version>
+					</dependency>
+				</dependencies>
 			</plugin>
 		</plugins>
 	</build>

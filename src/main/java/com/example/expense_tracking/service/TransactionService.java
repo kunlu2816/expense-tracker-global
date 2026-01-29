@@ -5,7 +5,6 @@ import com.example.expense_tracking.entity.*;
 import com.example.expense_tracking.repository.BankConfigRepository;
 import com.example.expense_tracking.repository.CategoryRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
-import com.example.expense_tracking.repository.WebhookLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 
@@ -30,9 +29,7 @@ import java.util.List;
 public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
-
     private final BankConfigRepository bankConfigRepository;
-    private final WebhookLogRepository webhookLogRepository;
     private final ObjectMapper objectMapper;
 
     public Transaction createTransaction(TransactionRequest request, User user) {
@@ -55,8 +52,8 @@ public class TransactionService {
 
         BankConfig bankConfig = null;
         // Check if there is Bank or Cash
-        if (request.getAccountNumber() != null && !request.getAccountNumber().isEmpty()) {
-            bankConfig = bankConfigRepository.findByAccountNumber(request.getAccountNumber())
+        if (request.getBankConfigId() != null) {
+            bankConfig = bankConfigRepository.findById(request.getBankConfigId())
                     .orElseThrow(() -> new RuntimeException("Bank Account not found"));
 
 
@@ -121,16 +118,14 @@ public class TransactionService {
                 });
         transaction.setCategory(category);
 
-        if (request.getAccountNumber() != null) {
-
-            if (request.getAccountNumber().trim().isEmpty()) {
-                // Case A: User sent "" (Empty String) -> Explicitly switch to CASH
+        if (request.getBankConfigId() != null) {
+            if (request.getBankConfigId() <= 0) {
+                // Case A: User sent 0 or negative -> Explicitly switch to CASH
                 transaction.setBankConfig(null);
             } else {
-                // Case B: User sent a Value -> Switch to NEW BANK
-                BankConfig bankConfig = bankConfigRepository.findByAccountNumber(request.getAccountNumber())
+                // Case B: User sent a positive ID -> Switch to NEW BANK
+                BankConfig bankConfig = bankConfigRepository.findById(request.getBankConfigId())
                         .orElseThrow(() -> new RuntimeException("Bank Account not found"));
-
                 if (!bankConfig.getUser().getId().equals(user.getId())) {
                     throw new RuntimeException("You do not own this bank account");
                 }
@@ -165,79 +160,6 @@ public class TransactionService {
                 .totalExpense(totalExpense)
                 .balance(balance)
                 .build();
-    }
-
-    public void processCassoWebhooks(String headerToken, CassoWebhookDTO payload) {
-        // Logging: save the raw incoming data immediately
-        WebhookLog log = new WebhookLog();
-        try {
-            log.setPayload(objectMapper.writeValueAsString(payload)); // Convert DTO back to JSON string
-        } catch (Exception e) {
-            log.setPayload("Error serializing payload");
-        }
-        log.setStatus("PENDING");
-        webhookLogRepository.save(log);
-
-        try {
-
-            CassoWebhookDTO.CassoTransaction cassoTrans = payload.getData();
-            // Find who owns this bank account
-            BankConfig bankConfig = bankConfigRepository.findByAccountNumber(cassoTrans.getAccountNumber())
-                    .orElseThrow(() -> new RuntimeException("Account not found: " + cassoTrans.getAccountNumber()));
-
-            // Security check: the Header Token match the User's Secret Token
-            if (bankConfig.getSecureToken() != null && !bankConfig.getSecureToken().equals(headerToken)) {
-                throw new RuntimeException("Invalid Secure Token for this account: " + cassoTrans.getAccountNumber());
-            }
-
-            // Deduplication: Avoid saving same transaction
-            if (transactionRepository.existsByBankTransactionIdAndBankConfig(cassoTrans.getTid(), bankConfig)) {
-                log.setStatus("DUPLICATE");
-                webhookLogRepository.save(log);
-                return;
-            }
-
-            // CREATE TRANSACTION
-            Transaction t = new Transaction();
-            t.setUser(bankConfig.getUser());       // Link to User
-            t.setBankConfig(bankConfig);           // Link to Bank Account
-            t.setDescription(cassoTrans.getDescription());
-            t.setBankTransactionId(cassoTrans.getTid());
-
-
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                t.setTransactionDate(LocalDateTime.parse(cassoTrans.getTransactionDate(), formatter));
-            } catch (Exception e) {
-                t.setTransactionDate(LocalDateTime.now());
-            }
-
-            // Check type of transaction(IN/OUT)
-            BigDecimal amount = cassoTrans.getAmount();
-            if (amount.compareTo(BigDecimal.ZERO) < 0) {
-                // If the amount is less than 0
-                t.setType(TransactionType.OUT);
-                t.setAmount(amount.abs());
-            } else {
-                t.setType(TransactionType.IN);
-                t.setAmount(amount);
-            }
-
-            // Save the transaction
-            transactionRepository.save(t);
-
-
-            // SUCCESS: save the log
-            log.setStatus("SUCCESS");
-            webhookLogRepository.save(log);
-
-        } catch (Exception e) {
-            // FAIL
-            log.setStatus("FAILED");
-            log.setErrorMessage(e.getMessage());
-            webhookLogRepository.save(log);
-            throw e;
-        }
     }
 
     private TransactionResponse mapToResponse(Transaction transaction) {
