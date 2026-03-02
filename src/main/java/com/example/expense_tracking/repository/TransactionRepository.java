@@ -7,6 +7,7 @@ import com.example.expense_tracking.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -35,4 +36,10 @@ public interface TransactionRepository extends JpaRepository<Transaction,Long> {
     BigDecimal calculateTotal(@Param("user") User user, @Param("type") TransactionType type);
 
     boolean existsByBankTransactionIdAndBankConfig(String bankTransactionId, BankConfig bankConfig);
+
+    // Unlink all transactions from a bank config (set bankConfig to null)
+    // Used when user unlinks a bank account but wants to keep transaction history
+    @Modifying
+    @Query("UPDATE Transaction t SET t.bankConfig = null WHERE t.bankConfig = :bankConfig")
+    void unlinkTransactionsFromBankConfig(@Param("bankConfig") BankConfig bankConfig);
 }
