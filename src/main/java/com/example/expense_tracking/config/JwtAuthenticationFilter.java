@@ -1,5 +1,7 @@
 package com.example.expense_tracking.config;
 
+import com.example.expense_tracking.entity.User;
+import com.example.expense_tracking.repository.UserRepository;
 import com.example.expense_tracking.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,12 +18,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -62,6 +66,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // This is the line that make the user is officially "Logged In" for this request
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                // Update lastActiveAt if it's more than 1 hour old (throttle to avoid too many DB writes)
+                if (userDetails instanceof User) {
+                    User user = (User) userDetails;
+                    if (user.getLastActiveAt() == null ||
+                        user.getLastActiveAt().isBefore(LocalDateTime.now().minusHours(1))) {
+                        user.setLastActiveAt(LocalDateTime.now());
+                        userRepository.save(user);
+                    }
+                }
             }
         }
         filterChain.doFilter(request, response);

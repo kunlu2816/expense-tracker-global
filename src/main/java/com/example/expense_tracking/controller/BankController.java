@@ -2,8 +2,10 @@ package com.example.expense_tracking.controller;
 
 import com.example.expense_tracking.dto.bank.*;
 import com.example.expense_tracking.dto.gocardless.GCInstitution;
+import com.example.expense_tracking.entity.SyncLog;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.service.BankLinkingService;
+import org.springframework.data.domain.Page;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -115,5 +117,18 @@ public class BankController {
         }
 
         return ResponseEntity.ok(Map.of("message", "Bank unlinked successfully"));
+    }
+
+    // Get sync history for a specific bank account
+    // GET /api/banks/{id}/sync-history?page=0&size=10
+    @GetMapping("/{id}/sync-history")
+    public ResponseEntity<Page<SyncLog>> getSyncHistory(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        log.debug("Fetching sync history for bank account {} by user {}", id, user.getEmail());
+        Page<SyncLog> history = bankLinkingService.getSyncHistory(user, id, page, size);
+        return ResponseEntity.ok(history);
     }
 }

@@ -6,8 +6,10 @@ import com.example.expense_tracking.dto.gocardless.GCAccountDetails;
 import com.example.expense_tracking.dto.gocardless.GCInstitution;
 import com.example.expense_tracking.dto.gocardless.GCRequisitionResponse;
 import com.example.expense_tracking.entity.BankConfig;
+import com.example.expense_tracking.entity.SyncLog;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.repository.BankConfigRepository;
+import com.example.expense_tracking.repository.SyncLogRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 // Service for managing bank account linking flow
 // Uses GoCardlessService for API calls and TransactionSyncService for syncing
 @Service
@@ -29,6 +34,7 @@ public class BankLinkingService {
     private final TransactionSyncService transactionSyncService;
     private final BankConfigRepository bankConfigRepository;
     private final TransactionRepository transactionRepository;
+    private final SyncLogRepository syncLogRepository;
     private final SyncConfig syncConfig;
 
     // BankConfig status constants
@@ -326,6 +332,15 @@ public class BankLinkingService {
         log.info("Deleted bank config {}", bankConfigId);
 
         return true;
+    }
+
+    // Get sync history for a bank account
+    public Page<SyncLog> getSyncHistory(User user, Long bankConfigId, int page, int size) {
+        BankConfig bankConfig = bankConfigRepository.findByIdAndUser(bankConfigId, user)
+                .orElseThrow(() -> new RuntimeException("Bank account not found"));
+
+        return syncLogRepository.findByBankConfigOrderBySyncedAtDesc(
+                bankConfig, PageRequest.of(page, size));
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
