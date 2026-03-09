@@ -1,0 +1,312 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ========== Design Tokens ========== */
+:root {
+  /* Primary (Green) */
+  --color-primary: #0D9F6E;
+  --color-primary-light: #E6F7F0;
+  --color-primary-dark: #087F5B;
+
+  /* Semantic */
+  --color-income: #0D9F6E;
+  --color-expense: #FF4D4F;
+  --color-warning: #FAAD14;
+
+  /* Backgrounds */
+  --color-bg-page: #F8F9FA;
+  --color-bg-card: #FFFFFF;
+
+  /* Text */
+  --color-text-primary: #1F1F1F;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+
+  /* Borders */
+  --color-border: #E5E7EB;
+
+  /* Charts */
+  --color-chart-bar: #0D9F6E;
+  --color-chart-bar-light: #B8E8D5;
+
+  /* Spacing (8px grid) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+/* ========== Reset & Base ========== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== Layout ========== */
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-layout .ant-layout-sider {
+  background: var(--color-bg-card) !important;
+  border-right: 1px solid var(--color-border);
+}
+
+.app-layout .ant-layout-header {
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.app-content {
+  padding: var(--space-lg);
+  min-height: calc(100vh - 64px);
+}
+
+/* ========== Sidebar ========== */
+.sidebar-logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-logo h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-logo .logo-icon {
+  font-size: 24px;
+  color: var(--color-primary);
+}
+
+.app-layout .ant-menu {
+  border-inline-end: none !important;
+}
+
+.app-layout .ant-menu-item-selected {
+  background-color: var(--color-primary-light) !important;
+  color: var(--color-primary) !important;
+}
+
+.app-layout .ant-menu-item:hover {
+  color: var(--color-primary) !important;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ========== Header ========== */
+.header-search .ant-input-affix-wrapper {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-page);
+  width: 320px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* ========== Cards ========== */
+.stat-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  transition: box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card .stat-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
+.stat-card .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.stat-card .stat-value.income {
+  color: var(--color-income);
+}
+
+.stat-card .stat-value.expense {
+  color: var(--color-expense);
+}
+
+/* ========== Tables ========== */
+.ant-table-wrapper .ant-table {
+  border-radius: var(--radius-md);
+}
+
+.amount-in {
+  color: var(--color-income);
+  font-weight: 600;
+}
+
+.amount-out {
+  color: var(--color-expense);
+  font-weight: 600;
+}
+
+/* ========== Transaction Item ========== */
+.txn-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.txn-item:last-child {
+  border-bottom: none;
+}
+
+.txn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-bg-page);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-md);
+  font-size: 18px;
+}
+
+.txn-details {
+  flex: 1;
+}
+
+.txn-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.txn-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.txn-amount {
+  font-weight: 600;
+  font-size: 14px;
+  text-align: right;
+}
+
+/* ========== Auth Pages ========== */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-page);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: 40px;
+  border: 1px solid var(--color-border);
+}
+
+.auth-card .auth-logo {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.auth-card .auth-logo h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.auth-card .auth-logo p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* ========== Page Headers ========== */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ========== Period Selector ========== */
+.period-selector .ant-segmented {
+  background: var(--color-bg-page);
+}
+
+/* ========== Utility ========== */
+.text-income { color: var(--color-income); }
+.text-expense { color: var(--color-expense); }
+.text-muted { color: var(--color-text-muted); }
+.text-secondary { color: var(--color-text-secondary); }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  .app-content {
+    padding: var(--space-md);
+  }
+
+  .header-search .ant-input-affix-wrapper {
+    width: 200px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 22px;
+  }
+}

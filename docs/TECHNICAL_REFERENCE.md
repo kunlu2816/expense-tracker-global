@@ -1,8 +1,8 @@
 # Expense Tracking Global — Technical Reference
 
 > **Audience:** Developers, code reviewers, technical leads  
-> **Last Updated:** 2026-03-03  
-> **Stack:** Java 21 · Spring Boot 3.5.9 · PostgreSQL 16 · Maven · Flyway · JWT (jjwt 0.11.5) · GoCardless API · Lombok · Apache Commons CSV
+> **Last Updated:** 2026-03-08  
+> **Stack:** Java 21 · Spring Boot 3.5.9 · PostgreSQL 16 · Maven · Flyway · JWT (jjwt 0.11.5) · GoCardless API · Lombok · Apache Commons CSV · React 19 · Vite 7 · Ant Design 6 · Recharts 3 · Axios · React Router 7
 
 ---
 
@@ -14,7 +14,7 @@
 4. [Phase 1: Authentication & Security](#phase-1-authentication--security)
 5. [Phase 2: Transaction Management](#phase-2-transaction-management)
 6. [Phase 3: Bank Integration (GoCardless)](#phase-3-bank-integration-gocardless)
-7. [Phase 4: Frontend & Real-time](#phase-4-frontend--real-time-not-implemented)
+7. [Phase 4: Frontend (React SPA)](#phase-4-frontend-react-spa)
 8. [Phase 5: DevSecOps & Deploy](#phase-5-devsecops--deploy)
 9. [Database Schema](#database-schema)
 10. [Data Flow Diagrams](#data-flow-diagrams)
@@ -27,20 +27,20 @@
 ## Architecture
 
 ```
-                            ┌──────────────────────────────────────┐
-                            │           Spring Boot App            │
-┌──────────┐                │                                      │
-│          │   HTTP/JWT     │  Controller ──▶ Service ──▶ Repository│
-│  Client  │───────────────▶│       │                       │      │
-│          │◀───────────────│       ▼                       ▼      │
-└──────────┘                │  DTOs/Validation         PostgreSQL  │
-                            │                                      │
-                            │  ┌─────────────────────────────────┐ │
-                            │  │  TransactionSyncScheduler       │ │
-                            │  │  (@Scheduled every 15 min)      │ │
-                            │  └──────────┬──────────────────────┘ │
-                            │             ▼                        │
-                            │  GoCardlessService ──▶ GoCardless API│
+┌────────────────────┐      ┌──────────────────────────────────────┐
+│  React SPA (Vite)  │      │           Spring Boot App            │
+│                    │      │                                      │
+│  App.jsx           │ JWT  │  Controller ──▶ Service ──▶ Repository│
+│  ├── AuthContext   │─────▶│       │                       │      │
+│  ├── AppLayout     │◀─────│       ▼                       ▼      │
+│  └── Pages         │ JSON │  DTOs/Validation         PostgreSQL  │
+│    (Dashboard,     │      │                                      │
+│     Transactions,  │      │  ┌─────────────────────────────────┐ │
+│     Categories,    │      │  │  TransactionSyncScheduler       │ │
+│     BankAccounts,  │      │  │  (@Scheduled every 15 min)      │ │
+│     Profile)       │      │  └──────────┬──────────────────────┘ │
+│  port 5173         │      │             ▼                        │
+└────────────────────┘      │  GoCardlessService ──▶ GoCardless API│
                             └──────────────────────────────────────┘
 ```
 
@@ -371,13 +371,116 @@ public class TransactionSyncScheduler {
 
 ---
 
-## Phase 4: Frontend & Real-time (Not Implemented)
+## Phase 4: Frontend (React SPA)
 
-**Planned:**
-- Dashboard UI (Thymeleaf or separate SPA)
-- Real-time transaction feed via Spring WebSocket (STOMP)
-- Pie chart by category
-- Bank account settings page
+> Full details in [FRONTEND.md](./FRONTEND.md)
+
+### Stack
+
+| Package | Version | Purpose |
+|---------|---------|--------|
+| React | 19 | UI component framework |
+| Vite | 7 | Dev server + build tool (replaces Webpack) |
+| Ant Design | 6 | UI component library (tables, forms, modals) |
+| Recharts | 3 | Charts (pie, bar) |
+| Axios | 1.13 | HTTP client with JWT interceptors |
+| React Router | 7 | Client-side routing with nested layouts |
+| dayjs | 1.11 | Date formatting (Ant Design DatePicker dependency) |
+
+### Frontend Project Structure
+
+```
+frontend/
+├── index.html                 # Entry point (<div id="root">)
+├── package.json               # npm dependencies
+├── vite.config.js             # Vite + @vitejs/plugin-react
+└── src/
+    ├── main.jsx               # ReactDOM.createRoot()
+    ├── App.jsx                # Router + theme + AuthProvider
+    ├── index.css              # Design system (CSS variables)
+    ├── api/axios.js           # Axios instance + JWT interceptor
+    ├── contexts/AuthContext.jsx  # Auth state (user, login, logout)
+    ├── components/
+    │   ├── AppLayout.jsx      # Sidebar + header (Ant Design Layout)
+    │   └── ProtectedRoute.jsx # Auth guard → redirect to /login
+    └── pages/
+        ├── Login.jsx          # POST /auth/login
+        ├── Register.jsx       # POST /auth/register
+        ├── Dashboard.jsx      # GET /transactions/dashboard + recent txns
+        ├── Transactions.jsx   # Full CRUD + filters + export
+        ├── Categories.jsx     # CRUD + emoji icons
+        ├── BankAccounts.jsx   # Link/sync/unlink flow
+        └── Profile.jsx       # Edit name + change password
+```
+
+### Routing
+
+| Path | Component | Auth | Description |
+|------|-----------|------|-------------|
+| `/login` | `Login` | Public | Email + password form |
+| `/register` | `Register` | Public | Registration form |
+| `/` | `Dashboard` | Protected | Stats + charts + recent transactions |
+| `/transactions` | `Transactions` | Protected | Full CRUD table |
+| `/categories` | `Categories` | Protected | Category management |
+| `/banks` | `BankAccounts` | Protected | Bank linking + sync |
+| `/profile` | `Profile` | Protected | Edit name + change password |
+
+Protected routes are wrapped with `<ProtectedRoute>` which checks `AuthContext.isAuthenticated`. Unauthenticated users are redirected to `/login`.
+
+### Authentication Flow (Frontend)
+
+```
+1. App mounts → AuthContext checks localStorage for JWT token
+2. Token exists? → GET /api/user/profile
+   → Success: set user state, render protected routes
+   → 401 Error: clear token, redirect to /login
+3. No token → redirect to /login
+
+Login:
+  → POST /api/auth/login { email, password }
+  → Store token in localStorage
+  → Load profile → redirect to /
+
+Logout:
+  → Clear localStorage → reset state → redirect to /login
+```
+
+### Axios Interceptors (api/axios.js)
+
+```javascript
+// Base: http://localhost:8080/api
+// Request interceptor: injects Authorization: Bearer <token>
+// Response interceptor: on 401 → clear token → redirect to /login
+```
+
+This centralizes JWT handling — every `api.get()` / `api.post()` call automatically includes the token.
+
+### Design System (index.css)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--color-primary` | `#0D9F6E` | Buttons, active states |
+| `--color-expense` | `#E53935` | Expense amounts (red) |
+| `--color-income` | `#0D9F6E` | Income amounts (green) |
+| `--color-bg-page` | `#F5F5F5` | Page background |
+| `--color-bg-card` | `#FFFFFF` | Cards |
+| `--color-text-primary` | `#1A1A2E` | Main text |
+| Font | Inter | Google Fonts, 400/500/600 weights |
+| Currency | GBP (£) | Formatter: `Intl.NumberFormat('en-GB', 'GBP')` |
+
+Ant Design's theme is overridden via `ConfigProvider` with `colorPrimary: '#0D9F6E'`.
+
+### CORS Configuration
+
+`SecurityConfig.java` allows `http://localhost:*` with credentials for development:
+- `allowedOriginPatterns`: `http://localhost:*`
+- `allowedMethods`: GET, POST, PUT, DELETE, OPTIONS, PATCH
+- `allowedHeaders`: `*`
+- `allowCredentials`: `true`
+
+### Not Yet Implemented
+- Real-time WebSocket (STOMP) integration for live transaction feed
+- Mobile-responsive polish
 
 ---
 
@@ -585,21 +688,26 @@ sync:
 
 ## Known Issues & Potential Improvements
 
-### Code Issues
-- **`UserController`** uses `@Controller` instead of `@RestController` — works but inconsistent with other controllers
-- **`startLinking()`** hardcodes `"GB"` when looking up institution name/logo — should use the user's selected country
+### Backend Code Issues
 - **JWT secret** is hardcoded in `application.yaml` — should use `${JWT_SECRET}` environment variable in production
 - **`exportToCsv()`** loads up to 100K rows into memory — may need streaming for large datasets
+
+### Frontend Issues
+- Vite boilerplate files (`main.ts`, `counter.ts`, `style.css`, `typescript.svg`) left in `src/` — should be deleted
+- No error boundary for React component crashes
+- No loading skeleton states (shows spinner only)
 
 ### Security
 - No rate limiting on auth endpoints (vulnerable to brute-force)
 - No refresh token mechanism (users must re-login after 24 hours)
 - No input sanitization warnings for log injection (log messages include user input)
+- CORS allows `http://localhost:*` — must be restricted for production
 
 ### Testing
-- No unit tests or integration tests exist in the project
+- No unit tests or integration tests exist (backend or frontend)
 - GoCardless integration requires sandbox credentials for testing
 
-### Pending Phases
-- **Phase 4 (Frontend):** No UI exists — this is API-only
+### Pending
+- **WebSocket:** Real-time transaction feed not yet implemented
 - **Phase 5 (Deploy):** No app Dockerfile, no CI/CD, no SSL configured
+- **GoCardless Mock:** Need mock service for development without VPN (GoCardless blocks non-EU traffic)

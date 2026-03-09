@@ -11,7 +11,7 @@ A personal finance management REST API built with Spring Boot. Tracks income and
 | 1 | [Core Foundation](#phase-1-core-foundation) | ✅ Complete | Database, Spring Boot setup, JWT authentication |
 | 2 | [Business Logic & Manual Features](#phase-2-business-logic--manual-features) | ✅ Complete | Transaction CRUD, categories, dashboard stats, CSV export |
 | 3 | [Bank Integration (GoCardless)](#phase-3-bank-integration-gocardless) | ✅ Complete | Open Banking linking, auto-sync, background scheduler |
-| 4 | [Frontend & Real-time](#phase-4-frontend--real-time) | ⏳ Pending | Web dashboard, WebSocket live updates |
+| 4 | [Frontend & Real-time](#phase-4-frontend--real-time) | 🔧 Partial | React SPA built (auth, dashboard, CRUD), WebSocket pending |
 | 5 | [DevSecOps & Deploy](#phase-5-devsecops--deploy) | 🔧 Partial | Docker (DB only), needs app container, CI/CD, SSL |
 
 ---
@@ -54,13 +54,23 @@ A personal finance management REST API built with Spring Boot. Tracks income and
 - **Expiry Detection:** Auto-detects expired bank access and marks accounts
 
 ### Phase 4: Frontend & Real-time
-> *Web dashboard with real-time updates — NOT YET IMPLEMENTED*
+> *React SPA with Ant Design — core UI implemented, WebSocket pending*
 
-**Planned features:**
-- [ ] Dashboard page: balance, recent transactions, charts
-- [ ] Settings page: bank account management, API key configuration
+**Done:**
+- [x] React 19 + Vite 7 project setup with Ant Design 6
+- [x] JWT authentication flow (login, register, auto-redirect)
+- [x] Dashboard page: stat cards (income/expense/balance), spending pie chart, recent transactions
+- [x] Transaction CRUD: filterable table, pagination, add/edit modal, CSV export
+- [x] Category management: list, create, edit, delete with emoji icons
+- [x] Bank Accounts: link flow, manual sync, sync history, unlink
+- [x] Profile page: edit name, change password
+- [x] Responsive sidebar layout with navigation
+
+**Pending:**
 - [ ] Real-time updates via WebSocket (STOMP) — live transaction feed without page refresh
-- [ ] Pie chart visualization by category
+- [ ] Mobile-responsive polish
+
+See [Frontend Architecture](./FRONTEND.md) for full details.
 
 ### Phase 5: DevSecOps & Deploy
 > *Production deployment infrastructure — PARTIALLY IMPLEMENTED*
@@ -88,9 +98,16 @@ export GOCARDLESS_SECRET_ID=your_secret_id
 export GOCARDLESS_SECRET_KEY=your_secret_key
 export APP_BASE_URL=http://localhost:8080
 
-# 3. Run the application
+# 3. Run the backend (port 8080)
 ./mvnw spring-boot:run
+
+# 4. Run the frontend (port 5173)
+cd frontend
+npm install
+npm run dev
 ```
+
+Open **http://localhost:5173** in your browser.
 
 ---
 
@@ -117,6 +134,14 @@ export APP_BASE_URL=http://localhost:8080
 | PUT | `/{id}` | Update transaction |
 | DELETE | `/{id}` | Delete transaction |
 | GET | `/dashboard` | Get income/expense/balance summary |
+
+### Categories (`/api/categories`) — Requires JWT
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List user's categories |
+| POST | `/` | Create category |
+| PUT | `/{id}` | Update category |
+| DELETE | `/{id}` | Delete category |
 | GET | `/export` | Download transactions as CSV |
 
 ### Bank Operations (`/api/banks`) — Requires JWT
@@ -162,6 +187,7 @@ sync:
 
 | Layer | Technology |
 |-------|-----------|
+| **Backend** | |
 | Language | Java 21 |
 | Framework | Spring Boot 3.5.9 |
 | Database | PostgreSQL 16 |
@@ -172,6 +198,13 @@ sync:
 | CSV | Apache Commons CSV |
 | Build | Maven |
 | Containers | Docker (PostgreSQL) |
+| **Frontend** | |
+| UI Framework | React 19 |
+| Build Tool | Vite 7 |
+| Component Library | Ant Design 6 |
+| Charts | Recharts 3 |
+| HTTP Client | Axios |
+| Routing | React Router 7 |
 
 ---
 
@@ -181,6 +214,7 @@ sync:
 |----------|-------------|
 | [Project Overview](./PROJECT_OVERVIEW.md) | High-level feature guide (abstraction level) |
 | [Technical Reference](./TECHNICAL_REFERENCE.md) | Full implementation details (technical level) |
+| [Frontend Architecture](./FRONTEND.md) | Frontend structure, design system, auth flow, page details |
 | [Phase 4 Bank Linking](./PHASE4_BANK_LINKING.md) | Detailed Phase 3 bank linking workflow documentation |
 
 ---

@@ -1,7 +1,7 @@
 # Expense Tracking Global — Project Overview
 
 > **Audience:** Non-technical stakeholders, product managers, new team members  
-> **Last Updated:** 2026-03-03
+> **Last Updated:** 2026-03-08
 
 ---
 
@@ -20,7 +20,7 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 | 1 | Core Foundation | ✅ Done | Database, authentication, user management |
 | 2 | Business Logic | ✅ Done | Transaction management, categories, reports, export |
 | 3 | Bank Integration | ✅ Done | GoCardless Open Banking, auto-sync, scheduler |
-| 4 | Frontend & Real-time | ⏳ Not Started | Web dashboard with live updates |
+| 4 | Frontend & Real-time | 🔧 Partial | React SPA built — auth, dashboard, CRUD pages. WebSocket pending |
 | 5 | DevSecOps & Deploy | 🔧 Partial | Docker DB exists, needs app container & CI/CD |
 
 ---
@@ -104,13 +104,25 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 
 ---
 
-### 🖥 Phase 4: Frontend & Real-time (Not Yet Built)
+### 🖥 Phase 4: Frontend (Partially Built)
 
-**Planned features:**
-- Web dashboard showing balance, recent transactions, and category charts
-- Settings page for managing bank connections
-- Real-time updates via WebSocket — live transaction feed without refreshing
-- Pie chart visualization by spending category
+A React web application that connects to the backend API:
+
+| Feature | Description |
+|---------|-------------|
+| **Login / Register** | Email + password authentication with form validation |
+| **Dashboard** | Income/expense/balance cards, spending pie chart, recent transactions |
+| **Transactions** | Full table with filtering, pagination, add/edit/delete, CSV export |
+| **Categories** | Manage spending categories with emoji icons |
+| **Bank Accounts** | Link banks, sync transactions, view sync history, unlink |
+| **Profile** | Edit display name and change password |
+
+**How it works:** User opens the web app → logs in → receives a JWT token → token is automatically included in every API request → pages load data from the backend and display it in a professional UI.
+
+**Tech:** React 19, Vite 7 (build tool), Ant Design 6 (UI components), Recharts (charts), Axios (HTTP client)
+
+**Not Yet Built:**
+- Real-time updates via WebSocket (transactions appear live without refreshing)
 
 ---
 
@@ -130,10 +142,10 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 
 ```
 ┌──────────────┐        ┌────────────────────────┐        ┌────────────┐
-│              │  JWT   │                        │  SQL   │            │
-│  User / App  │───────▶│   Expense Tracker API  │───────▶│ PostgreSQL │
-│  (Client)    │◀───────│   (Spring Boot)        │◀───────│ (Database) │
-│              │  JSON  │                        │        │            │
+│   React SPA  │  JWT   │                        │  SQL   │            │
+│   (Vite)     │───────▶│   Expense Tracker API  │───────▶│ PostgreSQL │
+│              │◀───────│   (Spring Boot)        │◀───────│ (Database) │
+│  port 5173   │  JSON  │   port 8080            │        │  port 5433 │
 └──────────────┘        └───────────┬────────────┘        └────────────┘
                                     │
                               Every 15 min
@@ -175,8 +187,9 @@ User
 | Authentication | 2 | Public | Register, Login |
 | User Profile | 3 | JWT | View, Update, Change Password |
 | Transactions | 6 | JWT | CRUD, Dashboard, CSV Export |
+| Categories | 4 | JWT | List, Create, Update, Delete |
 | Bank Operations | 8 | JWT* | Link, Sync, History, Unlink |
 
 *The bank callback endpoint is public (GoCardless redirects without JWT)
 
-**Total: 19 API endpoints**
+**Total: 23 API endpoints**

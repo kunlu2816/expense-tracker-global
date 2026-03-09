@@ -1,0 +1,290 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Card, Space, message, Popconfirm } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import api from '../api/axios';
+
+const formatCurrency = (val) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(val || 0);
+
+const Transactions = () => {
+    const [transactions, setTransactions] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [editingTxn, setEditingTxn] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+    const [filters, setFilters] = useState({ category: null, startDate: null, endDate: null });
+    const [form] = Form.useForm();
+
+    const loadTransactions = useCallback(async (page = 0, size = 10) => {
+        setLoading(true);
+        try {
+            const params = { page, size };
+            if (filters.category) params.category = filters.category;
+            if (filters.startDate) params.startDate = filters.startDate;
+            if (filters.endDate) params.endDate = filters.endDate;
+
+            const response = await api.get('/transactions', { params });
+            setTransactions(response.data.content || []);
+            setPagination({
+                current: (response.data.number || 0) + 1,
+                pageSize: response.data.size || 10,
+                total: response.data.totalElements || 0,
+            });
+        } catch (error) {
+            message.error('Failed to load transactions');
+        } finally {
+            setLoading(false);
+        }
+    }, [filters]);
+
+    const loadCategories = async () => {
+        try {
+            const response = await api.get('/categories');
+            setCategories(response.data || []);
+        } catch {
+            // Categories endpoint might not exist yet
+        }
+    };
+
+    useEffect(() => {
+        loadTransactions();
+        loadCategories();
+    }, [loadTransactions]);
+
+    const handleSubmit = async (values) => {
+        setSaving(true);
+        try {
+            const payload = {
+                category: values.category,
+                amount: values.amount,
+                type: values.type,
+                description: values.description || '',
+                transactionDate: values.transactionDate ? values.transactionDate.toISOString() : null,
+            };
+
+            if (editingTxn) {
+                await api.put(`/transactions/${editingTxn.id}`, payload);
+                message.success('Transaction updated');
+            } else {
+                await api.post('/transactions', payload);
+                message.success('Transaction created');
+            }
+
+            setModalOpen(false);
+            setEditingTxn(null);
+            form.resetFields();
+            loadTransactions(pagination.current - 1, pagination.pageSize);
+        } catch (error) {
+            const errors = error.response?.data;
+            if (typeof errors === 'object') {
+                Object.values(errors).forEach((msg) => message.error(msg));
+            } else {
+                message.error('Failed to save transaction');
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            await api.delete(`/transactions/${id}`);
+            message.success('Transaction deleted');
+            loadTransactions(pagination.current - 1, pagination.pageSize);
+        } catch {
+            message.error('Failed to delete transaction');
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            const response = await api.get('/transactions/export', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'transactions.csv');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            message.success('CSV exported');
+        } catch {
+            message.error('Export failed');
+        }
+    };
+
+    const openEdit = (txn) => {
+        setEditingTxn(txn);
+        form.setFieldsValue({
+            category: txn.category?.name,
+            amount: txn.amount,
+            type: txn.type,
+            description: txn.description,
+            transactionDate: txn.transactionDate ? dayjs(txn.transactionDate) : null,
+        });
+        setModalOpen(true);
+    };
+
+    const openCreate = () => {
+        setEditingTxn(null);
+        form.resetFields();
+        form.setFieldsValue({ type: 'OUT' });
+        setModalOpen(true);
+    };
+
+    const columns = [
+        {
+            title: 'Date',
+            dataIndex: 'transactionDate',
+            key: 'date',
+            width: 100,
+            render: (date) => dayjs(date).format('DD MMM'),
+        },
+        {
+            title: 'Category',
+            dataIndex: 'category',
+            key: 'category',
+            render: (cat) => <Tag color={cat?.type === 'IN' ? 'green' : 'default'}>{cat?.name || '—'}</Tag>,
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            ellipsis: true,
+            render: (text) => text || '—',
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            width: 80,
+            render: (type) => (
+                <Tag color={type === 'IN' ? 'green' : 'red'}>{type === 'IN' ? 'Income' : 'Expense'}</Tag>
+            ),
+        },
+        {
+            title: 'Amount',
+            dataIndex: 'amount',
+            key: 'amount',
+            align: 'right',
+            width: 140,
+            render: (amount, record) => (
+                <span className={record.type === 'IN' ? 'amount-in' : 'amount-out'}>
+                    {record.type === 'IN' ? '+' : '-'}{formatCurrency(amount)}
+                </span>
+            ),
+        },
+        {
+            title: '',
+            key: 'actions',
+            width: 80,
+            render: (_, record) => (
+                <Space>
+                    <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+                    <Popconfirm title="Delete this transaction?" onConfirm={() => handleDelete(record.id)}>
+                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
+    return (
+        <div>
+            <div className="page-header">
+                <h1>Transactions</h1>
+                <Space>
+                    <Button icon={<DownloadOutlined />} onClick={handleExport}>Export CSV</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ borderRadius: 8 }}>
+                        Add Transaction
+                    </Button>
+                </Space>
+            </div>
+
+            {/* Filters */}
+            <Card style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
+                <Space wrap>
+                    <Select
+                        placeholder="All Categories"
+                        allowClear
+                        style={{ width: 180 }}
+                        onChange={(val) => setFilters((f) => ({ ...f, category: val }))}
+                        options={categories.map((c) => ({ label: c.name, value: c.name }))}
+                    />
+                    <DatePicker.RangePicker
+                        onChange={(dates) => {
+                            setFilters((f) => ({
+                                ...f,
+                                startDate: dates?.[0]?.toISOString() || null,
+                                endDate: dates?.[1]?.toISOString() || null,
+                            }));
+                        }}
+                    />
+                    <Button type="primary" ghost onClick={() => loadTransactions(0, pagination.pageSize)}>
+                        Apply
+                    </Button>
+                </Space>
+            </Card>
+
+            {/* Table */}
+            <Card style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}>
+                <Table
+                    columns={columns}
+                    dataSource={transactions}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{
+                        ...pagination,
+                        showSizeChanger: true,
+                        showTotal: (total) => `${total} transactions`,
+                        onChange: (page, size) => loadTransactions(page - 1, size),
+                    }}
+                />
+            </Card>
+
+            {/* Add/Edit Modal */}
+            <Modal
+                title={editingTxn ? 'Edit Transaction' : 'Add Transaction'}
+                open={modalOpen}
+                onCancel={() => { setModalOpen(false); setEditingTxn(null); form.resetFields(); }}
+                footer={null}
+            >
+                <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
+                    <Form.Item name="type" label="Type" rules={[{ required: true }]}>
+                        <Select options={[
+                            { label: '💰 Income', value: 'IN' },
+                            { label: '💸 Expense', value: 'OUT' },
+                        ]} />
+                    </Form.Item>
+                    <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Category is required' }]}>
+                        <Input placeholder="e.g. Food, Salary, Rent" />
+                    </Form.Item>
+                    <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Amount is required' }]}>
+                        <InputNumber
+                            min={0.01}
+                            step={0.01}
+                            prefix="£"
+                            style={{ width: '100%' }}
+                            placeholder="0.00"
+                        />
+                    </Form.Item>
+                    <Form.Item name="description" label="Description">
+                        <Input.TextArea rows={2} placeholder="Optional description" />
+                    </Form.Item>
+                    <Form.Item name="transactionDate" label="Date">
+                        <DatePicker style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" loading={saving} block style={{ borderRadius: 8, height: 44 }}>
+                            {editingTxn ? 'Update' : 'Create'} Transaction
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Modal>
+        </div>
+    );
+};
+
+export default Transactions;
