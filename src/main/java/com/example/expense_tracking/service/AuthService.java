@@ -4,6 +4,8 @@ import com.example.expense_tracking.dto.LoginRequest;
 import com.example.expense_tracking.dto.LoginResponse;
 import com.example.expense_tracking.dto.RegisterRequest;
 import com.example.expense_tracking.entity.User;
+import com.example.expense_tracking.exception.BadRequestException;
+import com.example.expense_tracking.exception.ConflictException;
 import com.example.expense_tracking.repository.UserRepository;
 import com.example.expense_tracking.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +22,7 @@ public class AuthService {
     public User register(RegisterRequest request) {
         // 1. Check if email already exist
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
 
         // 2. Create new user
@@ -38,11 +40,11 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         // 1. Find user by email
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email not found"));
+                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
 
         // 2. Check if the password is correct
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Passwords do not match");
+            throw new BadRequestException("Invalid email or password");
         }
 
         // 3. Generate token

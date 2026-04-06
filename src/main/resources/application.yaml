@@ -1,11 +1,14 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: expense-tracking-global
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/postgres
-    username: postgres
-    password: MinhHieu2816@
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:MinhHieu2816@}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -22,7 +25,7 @@ spring:
     locations: classpath:db/migration
 
 jwt:
-  secret: "MySuperStrongSuperLongSecretKeyForSecurity2806"
+  secret: ${JWT_SECRET:MySuperStrongSuperLongSecretKeyForSecurity2806}
   expiration: 86400000 # 24 hours in milliseconds
 
 # GoCardless Bank Account Data API configuration

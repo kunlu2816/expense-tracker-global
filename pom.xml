@@ -133,9 +133,9 @@
 				<groupId>org.flywaydb</groupId>
 				<artifactId>flyway-maven-plugin</artifactId>
 				<configuration>
-					<url>jdbc:postgresql://localhost:5433/postgres</url>
-					<user>postgres</user>
-					<password>MinhHieu2816@</password>
+					<url>${env.DB_URL}</url>
+					<user>${env.DB_USERNAME}</user>
+					<password>${env.DB_PASSWORD}</password>
 					<schemas>
 						<schema>public</schema>
 					</schemas>

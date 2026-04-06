@@ -2,6 +2,8 @@ package com.example.expense_tracking.service;
 
 import com.example.expense_tracking.dto.*;
 import com.example.expense_tracking.entity.*;
+import com.example.expense_tracking.exception.ForbiddenException;
+import com.example.expense_tracking.exception.ResourceNotFoundException;
 import com.example.expense_tracking.repository.BankConfigRepository;
 import com.example.expense_tracking.repository.CategoryRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -22,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 
 @Service
@@ -32,7 +36,8 @@ public class TransactionService {
     private final BankConfigRepository bankConfigRepository;
     private final ObjectMapper objectMapper;
 
-    public Transaction createTransaction(TransactionRequest request, User user) {
+    @Transactional
+    public TransactionResponse createTransaction(TransactionRequest request, User user) {
         LocalDateTime actualDate = request.getTransactionDate();
         if (actualDate == null) {
             actualDate = LocalDateTime.now();
@@ -54,18 +59,17 @@ public class TransactionService {
         // Check if there is Bank or Cash
         if (request.getBankConfigId() != null) {
             bankConfig = bankConfigRepository.findById(request.getBankConfigId())
-                    .orElseThrow(() -> new RuntimeException("Bank Account not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found"));
 
 
             // If there is bank. Security Check: Does user own this bank account?
             if (!bankConfig.getUser().getId().equals(user.getId())) {
-                throw new RuntimeException("You do not own this bank account");
+                throw new ForbiddenException("You do not own this bank account");
             }
         }
 
-        // Auto genarate Manual ID
-        // Format: MANUAL_timestamp_random
-        String manualId = "MANUAL_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000);
+        // Auto generate Manual ID
+        String manualId = "MANUAL_" + UUID.randomUUID();
 
         Transaction transaction = Transaction.builder()
                 .user(user)
@@ -78,7 +82,8 @@ public class TransactionService {
                 .bankTransactionId(manualId)
                 .build();
 
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        return mapToResponse(saved);
     }
 
     public Page<TransactionResponse> getAllTransactions(User user, int page, int size, String category, LocalDateTime startDate, LocalDateTime endDate) {
@@ -88,13 +93,14 @@ public class TransactionService {
         return transactionPage.map(this::mapToResponse);
     }
 
+    @Transactional
     public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
 
         // Check if User own the transaction
         if (!transaction.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You do not own this transaction");
+            throw new ForbiddenException("You do not own this transaction");
         }
 
         // Update field
@@ -125,9 +131,9 @@ public class TransactionService {
             } else {
                 // Case B: User sent a positive ID -> Switch to NEW BANK
                 BankConfig bankConfig = bankConfigRepository.findById(request.getBankConfigId())
-                        .orElseThrow(() -> new RuntimeException("Bank Account not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found"));
                 if (!bankConfig.getUser().getId().equals(user.getId())) {
-                    throw new RuntimeException("You do not own this bank account");
+                    throw new ForbiddenException("You do not own this bank account");
                 }
                 transaction.setBankConfig(bankConfig);
             }
@@ -140,11 +146,12 @@ public class TransactionService {
         return mapToResponse(savedTransaction);
     }
 
+    @Transactional
     public void deleteTransaction(Long id, User user) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
         if (!transaction.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You do not own this transaction");
+            throw new ForbiddenException("You do not own this transaction");
         }
 
         transactionRepository.delete(transaction);
@@ -160,6 +167,10 @@ public class TransactionService {
                 .totalExpense(totalExpense)
                 .balance(balance)
                 .build();
+    }
+
+    public List<CategorySummaryResponse> getCategorySummary(User user) {
+        return transactionRepository.getCategorySummary(user);
     }
 
     private TransactionResponse mapToResponse(Transaction transaction) {
@@ -199,11 +210,21 @@ public class TransactionService {
                         t.getId(),
                         t.getTransactionDate(),
                         t.getType(),
-                        t.getCategory().getName(),
+                        t.getCategory() != null ? sanitizeCsvValue(t.getCategory().getName()) : "Uncategorized",
                         t.getAmount(),
-                        t.getDescription()
+                        sanitizeCsvValue(t.getDescription())
                 );
             }
         }
+    }
+
+    // Prevent CSV injection by prefixing dangerous characters with a single quote
+    private String sanitizeCsvValue(String value) {
+        if (value == null) return "";
+        if (value.startsWith("=") || value.startsWith("+") || value.startsWith("-")
+                || value.startsWith("@") || value.startsWith("\t") || value.startsWith("\r")) {
+            return "'" + value;
+        }
+        return value;
     }
 }

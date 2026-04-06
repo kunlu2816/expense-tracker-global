@@ -1,6 +1,7 @@
 package com.example.expense_tracking.service;
 
 import com.example.expense_tracking.config.SyncConfig;
+import com.example.expense_tracking.dto.SyncLogResponse;
 import com.example.expense_tracking.dto.bank.*;
 import com.example.expense_tracking.dto.gocardless.GCAccountDetails;
 import com.example.expense_tracking.dto.gocardless.GCInstitution;
@@ -8,6 +9,8 @@ import com.example.expense_tracking.dto.gocardless.GCRequisitionResponse;
 import com.example.expense_tracking.entity.BankConfig;
 import com.example.expense_tracking.entity.SyncLog;
 import com.example.expense_tracking.entity.User;
+import com.example.expense_tracking.exception.BadRequestException;
+import com.example.expense_tracking.exception.ResourceNotFoundException;
 import com.example.expense_tracking.repository.BankConfigRepository;
 import com.example.expense_tracking.repository.SyncLogRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
@@ -20,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -52,15 +56,15 @@ public class BankLinkingService {
     @Transactional
     public LinkBankResponse startLinking(User user, String institutionId, String countryCode) {
         log.info("Starting bank linking for user {} with institution {}", user.getEmail(), institutionId);
-        // 1. Generate unique reference (user_id + timestamp)
-        String reference = "user_" + user.getId() + "_" + System.currentTimeMillis();
+        // 1. Generate unpredictable UUID reference
+        String reference = UUID.randomUUID().toString();
 
         // 2. Create requisition via GoCardless
         GCRequisitionResponse requisition = goCardlessService.createRequisition(institutionId, reference);
 
         if (requisition == null || requisition.getLink() == null) {
             log.error("Failed to create requisition for user {}", user.getEmail());
-            throw new RuntimeException("Failed to create bank linking session");
+            throw new BadRequestException("Failed to create bank linking session");
         }
 
         // 3. Get institution details for name and logo
@@ -83,6 +87,7 @@ public class BankLinkingService {
         bankConfig.setInstitutionName(institutionName);
         bankConfig.setInstitutionLogo(institutionLogo);
         bankConfig.setRequisitionId(requisition.getId());
+        bankConfig.setLinkReference(reference);
         bankConfig.setStatus(STATUS_PENDING);
 
         bankConfigRepository.save(bankConfig);
@@ -102,34 +107,19 @@ public class BankLinkingService {
     public CallbackResponse processCallback(String reference) {
         log.info("Process callback with reference: {}", reference);
 
-        // 1. Extract user ID from reference (reference format: user_{userId}_{timestamp})
+        // 1. Look up BankConfig by link reference (UUID)
         try {
-            String[] parts = reference.split("_");
-            if (parts.length < 3 || !parts[0].equals("user")) {
-                log.error("Invalid reference format: {}", reference);
-                return buildErrorResponse("Invalid callback reference format");
-            }
-
-            Long userId = Long.parseLong(parts[1]);
-
-            // 2. Find BankConfig by reference pattern (user's pending requisition)
-            List<BankConfig> pendingConfigs = bankConfigRepository.findByStatus(STATUS_PENDING);
-            BankConfig bankConfig = null;
-
-            for (BankConfig config : pendingConfigs) {
-                if (config.getUser().getId().equals(userId) && config.getRequisitionId() != null) {
-                    // Verify this requisition by checking with GoCardless
-                    GCRequisitionResponse requisition = goCardlessService.getRequisition(config.getRequisitionId());
-                    if (requisition != null && reference.equals(requisition.getReference())) {
-                        bankConfig = config;
-                        break;
-                    }
-                }
-            }
+            BankConfig bankConfig = bankConfigRepository.findByLinkReference(reference)
+                    .orElse(null);
 
             if (bankConfig == null) {
-                log.error("No pending bank config found for reference: {}", reference);
+                log.error("No bank config found for reference: {}", reference);
                 return buildErrorResponse("No pending bank linking session found");
+            }
+
+            if (!STATUS_PENDING.equals(bankConfig.getStatus())) {
+                log.warn("Bank config {} is not in PENDING status: {}", bankConfig.getId(), bankConfig.getStatus());
+                return buildErrorResponse("Bank linking session is no longer pending");
             }
 
             // 3. Fetch requisition from GoCardless
@@ -335,12 +325,13 @@ public class BankLinkingService {
     }
 
     // Get sync history for a bank account
-    public Page<SyncLog> getSyncHistory(User user, Long bankConfigId, int page, int size) {
+    public Page<SyncLogResponse> getSyncHistory(User user, Long bankConfigId, int page, int size) {
         BankConfig bankConfig = bankConfigRepository.findByIdAndUser(bankConfigId, user)
-                .orElseThrow(() -> new RuntimeException("Bank account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found"));
 
         return syncLogRepository.findByBankConfigOrderBySyncedAtDesc(
-                bankConfig, PageRequest.of(page, size));
+                bankConfig, PageRequest.of(page, size))
+                .map(this::mapToSyncLogResponse);
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
@@ -377,6 +368,21 @@ public class BankLinkingService {
                 .message("Bank linking failed")
                 .error(errorMessage)
                 .transactionsSynced(0)
+                .build();
+    }
+
+    // Map SyncLog entity to SyncLogResponse DTO
+    private SyncLogResponse mapToSyncLogResponse(SyncLog log) {
+        return SyncLogResponse.builder()
+                .id(log.getId())
+                .syncedAt(log.getSyncedAt())
+                .dateFrom(log.getDateFrom())
+                .dateTo(log.getDateTo())
+                .transactionsFetched(log.getTransactionsFetched())
+                .transactionsNew(log.getTransactionsNew())
+                .status(log.getStatus())
+                .errorMessage(log.getErrorMessage())
+                .createdAt(log.getCreatedAt())
                 .build();
     }
 }

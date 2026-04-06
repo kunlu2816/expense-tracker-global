@@ -1,0 +1,23 @@
+# Dependencies (rebuilt inside container)
+node_modules
+frontend/node_modules
+# Build output (rebuilt inside container)
+target
+frontend/dist
+# Git
+.git
+.gitignore
+# IDE
+.idea
+.vscode
+*.iml
+# Environment (secrets)
+.env
+# Documentation
+*.md
+.opencode
+# Docker (prevent recursive copy)
+docker-compose.yaml
+# OS
+.DS_Store
+Thumbs.db

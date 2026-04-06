@@ -1,7 +1,7 @@
 package com.example.expense_tracking.controller;
 
+import com.example.expense_tracking.dto.CategoryDTO;
 import com.example.expense_tracking.dto.CategoryRequest;
-import com.example.expense_tracking.entity.Category;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.service.CategoryService;
 import jakarta.validation.Valid;
@@ -24,33 +24,33 @@ public class CategoryController {
     // List all categories for the current user
     // GET /api/categories
     @GetMapping
-    public ResponseEntity<List<Category>> getUserCategories(
+    public ResponseEntity<List<CategoryDTO>> getUserCategories(
             @AuthenticationPrincipal User user) {
         log.debug("Fetching categories for user {}", user.getEmail());
-        List<Category> categories = categoryService.getUserCategories(user);
+        List<CategoryDTO> categories = categoryService.getUserCategories(user);
         return ResponseEntity.ok(categories);
     }
 
     // Create a new category
     // POST /api/categories
     @PostMapping
-    public ResponseEntity<Category> createCategory(
+    public ResponseEntity<CategoryDTO> createCategory(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CategoryRequest request) {
         log.info("Creating category '{}' for user {}", request.getName(), user.getEmail());
-        Category category = categoryService.createCategory(user, request);
+        CategoryDTO category = categoryService.createCategory(user, request);
         return ResponseEntity.ok(category);
     }
 
     // Update a category
     // PUT /api/categories/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Category> updateCategory(
+    public ResponseEntity<CategoryDTO> updateCategory(
             @AuthenticationPrincipal User user,
             @PathVariable Long id,
             @Valid @RequestBody CategoryRequest request) {
         log.info("Updating category {} for user {}", id, user.getEmail());
-        Category category = categoryService.updateCategory(user, id, request);
+        CategoryDTO category = categoryService.updateCategory(user, id, request);
         return ResponseEntity.ok(category);
     }
 

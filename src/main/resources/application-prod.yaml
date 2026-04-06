@@ -1,0 +1,25 @@
+# Production profile overrides
+# Activated when SPRING_PROFILES_ACTIVE=prod
+# This file is layered ON TOP of application.yaml - only the keys listed here are overridden
+
+spring:
+  datasource:
+    #No fallback values - app MUST receive these from environment variables
+  # If missing, Spring Boot will fail at startup
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    root: WARN
+    com.example.expense_tracking: INFO

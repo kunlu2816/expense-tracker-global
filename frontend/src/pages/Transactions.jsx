@@ -62,7 +62,7 @@ const Transactions = () => {
                 amount: values.amount,
                 type: values.type,
                 description: values.description || '',
-                transactionDate: values.transactionDate ? values.transactionDate.toISOString() : null,
+                transactionDate: values.transactionDate ? values.transactionDate.format('YYYY-MM-DDTHH:mm:ss') : null,
             };
 
             if (editingTxn) {
@@ -217,8 +217,8 @@ const Transactions = () => {
                         onChange={(dates) => {
                             setFilters((f) => ({
                                 ...f,
-                                startDate: dates?.[0]?.toISOString() || null,
-                                endDate: dates?.[1]?.toISOString() || null,
+                                startDate: dates?.[0]?.startOf('day').format('YYYY-MM-DDTHH:mm:ss') || null,
+                                endDate: dates?.[1]?.endOf('day').format('YYYY-MM-DDTHH:mm:ss') || null,
                             }));
                         }}
                     />

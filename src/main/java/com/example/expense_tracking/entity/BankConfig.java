@@ -15,7 +15,7 @@ public class BankConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
@@ -34,6 +34,9 @@ public class BankConfig {
 
     @Column(name = "requisition_id")
     private String requisitionId;           // GoCardless session ID
+
+    @Column(name = "link_reference", unique = true)
+    private String linkReference;           // UUID reference for callback identification
 
     @Column(name = "gocardless_account_id", unique = true)
     private String gocardlessAccountId;     // Account ID for fetching transactions

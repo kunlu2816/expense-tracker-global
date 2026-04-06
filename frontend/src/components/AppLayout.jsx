@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layout, Menu, Button, Input, Badge, Avatar, Dropdown } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown } from 'antd';
 import {
     DashboardOutlined,
     TransactionOutlined,
@@ -7,8 +7,6 @@ import {
     BankOutlined,
     UserOutlined,
     LogoutOutlined,
-    SearchOutlined,
-    BellOutlined,
     PlusOutlined,
     WalletOutlined,
     MenuFoldOutlined,
@@ -96,21 +94,9 @@ const AppLayout = () => {
                             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                             onClick={() => setCollapsed(!collapsed)}
                         />
-                        <Input
-                            placeholder="Search transactions, categories..."
-                            prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
-                            style={{
-                                width: 320,
-                                borderRadius: 8,
-                                background: 'var(--color-bg-page)',
-                            }}
-                        />
                     </div>
 
                     <div className="header-actions">
-                        <Badge count={0} showZero={false}>
-                            <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} />
-                        </Badge>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}

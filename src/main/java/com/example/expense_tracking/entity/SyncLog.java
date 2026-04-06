@@ -18,7 +18,7 @@ public class SyncLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bank_config_id", nullable = false)
     private BankConfig bankConfig;
 

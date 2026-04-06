@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Segmented, Spin } from 'antd';
+import { Row, Col, Card, Table, Spin } from 'antd';
 import {
-    ArrowUpOutlined,
-    ArrowDownOutlined,
-    WalletOutlined,
-} from '@ant-design/icons';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+    PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+} from 'recharts';
 import api from '../api/axios';
 
 const COLORS = ['#0D9F6E', '#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#087F5B', '#059669', '#047857'];
@@ -16,6 +13,7 @@ const formatCurrency = (val) =>
 const Dashboard = () => {
     const [stats, setStats] = useState(null);
     const [recentTxns, setRecentTxns] = useState([]);
+    const [categoryData, setCategoryData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -25,29 +23,23 @@ const Dashboard = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [dashRes, txnRes] = await Promise.all([
+            const [dashRes, txnRes, catRes] = await Promise.all([
                 api.get('/transactions/dashboard'),
                 api.get('/transactions', { params: { page: 0, size: 5 } }),
+                api.get('/transactions/category-summary'),
             ]);
             setStats(dashRes.data);
             setRecentTxns(txnRes.data.content || []);
+            // Build pie data from category summary (expenses only)
+            const expenseData = (catRes.data || [])
+                .filter((c) => c.type === 'OUT')
+                .map((c) => ({ name: c.categoryName, value: c.total }));
+            setCategoryData(expenseData);
         } catch (error) {
             console.error('Failed to load dashboard:', error);
         } finally {
             setLoading(false);
         }
-    };
-
-    // Build pie chart data from recent transactions by category
-    const buildCategoryData = () => {
-        const map = {};
-        recentTxns
-            .filter((t) => t.type === 'OUT')
-            .forEach((t) => {
-                const name = t.category?.name || 'Uncategorized';
-                map[name] = (map[name] || 0) + t.amount;
-            });
-        return Object.entries(map).map(([name, value]) => ({ name, value }));
     };
 
     const columns = [
@@ -91,8 +83,6 @@ const Dashboard = () => {
         );
     }
 
-    const pieData = buildCategoryData();
-
     return (
         <div>
             <div className="page-header">
@@ -130,11 +120,11 @@ const Dashboard = () => {
                         style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}
                         styles={{ header: { borderBottom: '1px solid var(--color-border)' } }}
                     >
-                        {pieData.length > 0 ? (
+                        {categoryData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={280}>
                                 <PieChart>
                                     <Pie
-                                        data={pieData}
+                                        data={categoryData}
                                         cx="50%"
                                         cy="50%"
                                         innerRadius={60}
@@ -143,7 +133,7 @@ const Dashboard = () => {
                                         dataKey="value"
                                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                                     >
-                                        {pieData.map((_, idx) => (
+                                        {categoryData.map((_, idx) => (
                                             <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                                         ))}
                                     </Pie>

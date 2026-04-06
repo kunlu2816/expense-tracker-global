@@ -30,4 +30,7 @@ public interface BankConfigRepository extends JpaRepository<BankConfig, Long> {
 
     // Find by user and requisition ID
     Optional<BankConfig> findByUserAndRequisitionId(User user, String requisitionId);
+
+    // Find by link reference (UUID callback reference)
+    Optional<BankConfig> findByLinkReference(String linkReference);
 }

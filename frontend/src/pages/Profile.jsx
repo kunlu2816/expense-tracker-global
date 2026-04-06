@@ -108,7 +108,7 @@ const Profile = () => {
                                 label="New Password"
                                 rules={[
                                     { required: true, message: 'New password is required' },
-                                    { min: 6, message: 'Password must be at least 6 characters' },
+                                    { min: 8, message: 'Password must be at least 8 characters' },
                                 ]}
                             >
                                 <Input.Password prefix={<LockOutlined />} placeholder="New password" />
