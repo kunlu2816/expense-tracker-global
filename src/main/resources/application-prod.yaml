@@ -4,7 +4,7 @@
 
 spring:
   datasource:
-    #No fallback values - app MUST receive these from environment variables
+  #No fallback values - app MUST receive these from environment variables
   # If missing, Spring Boot will fail at startup
     url: ${DB_URL}
     username: ${DB_USERNAME}
