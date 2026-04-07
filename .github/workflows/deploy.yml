@@ -17,7 +17,9 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Build & test backend
-        run: ./mvnw clean package -B
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -B
       - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
