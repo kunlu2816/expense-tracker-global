@@ -146,11 +146,12 @@ The instance is small, so Docker builds and Java processes can exceed available 
 
 ### Runtime Model
 
-The app runs as three containers managed by Docker Compose:
+The app runs as four containers managed by Docker Compose:
 
-- frontend container for Nginx and static files
-- backend container for the Spring Boot API
-- database container for PostgreSQL
+- `database` — PostgreSQL 16, persisted via Docker volume
+- `backend` — Spring Boot JAR, built from multi-stage Maven Dockerfile
+- `nginx` — Multi-stage Node build + Nginx, serves React static files, proxies `/api` to backend
+- `certbot` — Standalone container for Let's Encrypt certificate management
 
 ### Why This Works Well
 
@@ -278,8 +279,10 @@ The workflow:
 
 | Secret | Purpose |
 |--------|---------|
-| `EC2_HOST` | Server address |
-| `SSH_PRIVATE_KEY` | SSH authentication |
+| `EC2_HOST` | Server public IP address |
+| `EC2_USER` | SSH username (e.g. `ubuntu`) |
+| `EC2_SSH_KEY` | Private SSH key for authentication |
+| `ENV_FILE` | Full `.env` file content — rewritten on every deploy |
 
 ### Why CI/CD Helps
 
@@ -306,16 +309,16 @@ The workflow:
 
 ```bash
 git pull
-docker compose up -d --build
+cat << 'ENVEOF' > .env
+${{ secrets.ENV_FILE }}   # written by pipeline — contains real DB/JWT/GoCardless credentials
+ENVEOF
+docker compose build
+docker compose up -d
+docker image prune -f
 ```
 
-That is enough because the server already has:
-
-- repository clone
-- Docker installed
-- environment variables
-- certificates mounted
-- domain and network configured
+The `.env` is fully rewritten on every deploy — the server never holds persistent secrets.
+The pipeline assumes Docker is installed and the repository is cloned.
 
 ---
 
@@ -397,7 +400,6 @@ Recommended improvements:
 
 ## Related
 
-- [[Projects/Expense Tracker/Overview|Overview]]
-- [[Projects/Expense Tracker/Architecture|Architecture]]
-- [[Projects/Expense Tracker/Deployment Guide|Deployment Guide]]
-- [[DevOps Concepts/_Index|DevOps Knowledge Base]]
+- [Project Overview](./PROJECT_OVERVIEW.md)
+- [Backend Reference](./BACKEND.md)
+- [Frontend Architecture](./FRONTEND.md)

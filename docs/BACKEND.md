@@ -590,11 +590,12 @@ Every 15 minutes (after initial delay):
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/postgres
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:MinhHieu2816@}       # dev fallback only
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/postgres}
+    username: ${DB_USERNAME}        # no fallback — must come from .env or env var
+    password: ${DB_PASSWORD}          # no fallback — must come from .env or env var
+    driver-class-name: org.postgresql.Driver
   jpa:
-    hibernate: { ddl-auto: validate }            # Flyway owns schema
+    hibernate: { ddl-auto: validate }  # Flyway owns schema
     show-sql: true
     properties: { hibernate: { format_sql: true } }
   flyway:
@@ -603,7 +604,7 @@ spring:
     locations: classpath:db/migration
 
 jwt:
-  secret: ${JWT_SECRET:MySuperStrongSuperLongSecretKeyForSecurity2806}  # env override required in prod
+  secret: ${JWT_SECRET:MySuperStrongSuperLongSecretKeyForSecurity2806}
   expiration: 86400000  # 24 hours in ms
 
 gocardless:
@@ -616,8 +617,8 @@ sync:
   enabled: true
   interval-minutes: 15          # How often to sync
   look-back-days: 3             # Incremental sync window (fetches last 3 days)
-  active-user-days: 30           # Skip sync if user inactive > 30 days
-  initial-sync-days: 90          # History depth on first link
+  active-user-days: 30          # Skip sync if user inactive > 30 days
+  initial-sync-days: 90         # History depth on first link
 ```
 
 ### application-prod.yaml (overrides for production)

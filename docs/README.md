@@ -11,6 +11,7 @@ A personal finance management REST API built with Spring Boot. Tracks income and
 | [Project Overview](./PROJECT_OVERVIEW.md) | High-level features, architecture diagram, user stories |
 | [Backend Reference](./BACKEND.md) | Full backend implementation — auth, transactions, GoCardless, scheduler, DB schema |
 | [Frontend Architecture](./FRONTEND.md) | React SPA — routing, auth flow, Axios interceptors, design system |
+| [DevOps Reference](./DEVOPS.md) | Docker Compose, EC2, Nginx, Certbot, GitHub Actions CI/CD |
 
 ---
 
