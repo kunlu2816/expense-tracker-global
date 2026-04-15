@@ -75,6 +75,7 @@ jobs:
             cd ~/expense-tracker-global
             git fetch origin main
             git reset --hard origin/main
+            chmod +x mvnw
 
             # Write environment variables
             cat << 'ENVEOF' > .env
