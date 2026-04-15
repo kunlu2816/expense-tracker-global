@@ -93,6 +93,25 @@ jobs:
             docker compose up -d
             docker image prune -f
 
+            # Wait for backend to be healthy before running smoke tests
+            echo "Waiting for backend to be healthy..."
+            timeout=60
+            elapsed=0
+            while true; do
+              HEALTH=$(docker compose exec -T backend wget -qO- http://localhost:8080/actuator/health 2>/dev/null | jq -r .status 2>/dev/null || echo "DOWN")
+              if [[ "$HEALTH" == "UP" ]]; then
+                echo "Backend is healthy!"
+                break
+              fi
+              if (( elapsed >= timeout )); then
+                echo "Backend health check timed out after ${timeout}s"
+                break
+              fi
+              sleep 5
+              elapsed=$((elapsed + 5))
+              echo "Still waiting... (${elapsed}s)"
+            done
+
             # Install / update monitoring cron jobs
             chmod +x script/install-cron.sh
             sudo ./script/install-cron.sh
