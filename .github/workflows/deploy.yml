@@ -95,7 +95,7 @@ jobs:
 
             # Install / update monitoring cron jobs
             chmod +x script/install-cron.sh
-            ./script/install-cron.sh
+            sudo ./script/install-cron.sh
 
             # Run smoke tests — fail deploy if any check fails
             chmod +x script/smoke-test.sh
