@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      DB_URL: jdbc:postgresql://localhost:5432/postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: test-secret-key-for-ci-only-not-production
 
     services:
       postgres:
@@ -24,12 +28,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-
-    env:
-      DB_URL: jdbc:postgresql://localhost:5432/postgres
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: test-secret-key-for-ci-only-not-production
 
     steps:
       - name: Checkout code
