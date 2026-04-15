@@ -93,26 +93,30 @@ jobs:
             docker compose up -d
             docker image prune -f
 
-            # Wait for containers to be Docker-healthy before smoke tests
-            # Uses Docker's own healthcheck (no DNS, no port exposure needed)
+            # Wait for containers to be healthy before smoke tests
+            # docker inspect gives us State.Status + Health without jq parsing issues
             echo "Waiting for containers to be healthy..."
-            timeout=90
+            timeout=120
             elapsed=0
             while true; do
-              BACKEND_HEALTH=$(docker compose ps expense-backend --format json 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "starting")
-              NGINX_HEALTH=$(docker compose ps expense-nginx --format json 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "starting")
-              echo "Backend: $BACKEND_HEALTH | Nginx: $NGINX_HEALTH"
-              if [[ "$BACKEND_HEALTH" == "healthy" && "$NGINX_HEALTH" == "healthy" ]]; then
-                echo "All containers healthy!"
+              BACKEND_STATE=$(docker inspect --format='{{.State.Status}}' expense-backend 2>/dev/null || echo "unknown")
+              BACKEND_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-backend 2>/dev/null || echo "unknown")
+              NGINX_STATE=$(docker inspect --format='{{.State.Status}}' expense-nginx 2>/dev/null || echo "unknown")
+              NGINX_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-nginx 2>/dev/null || echo "unknown")
+              echo "Backend: state=$BACKEND_STATE health=$BACKEND_HEALTH | Nginx: state=$NGINX_STATE health=$NGINX_HEALTH"
+              if [[ "$BACKEND_STATE" == "running" && ("$BACKEND_HEALTH" == "healthy" || "$BACKEND_HEALTH" == "no-healthcheck") && "$NGINX_STATE" == "running" && ("$NGINX_HEALTH" == "healthy" || "$NGINX_HEALTH" == "no-healthcheck") ]]; then
+                echo "All containers are up!"
                 break
               fi
-              if [[ "$BACKEND_HEALTH" == "unhealthy" || "$NGINX_HEALTH" == "unhealthy" ]]; then
-                echo "A container is unhealthy — check logs"
+              if [[ "$BACKEND_STATE" == "running" && "$NGINX_STATE" == "running" ]]; then
+                # Containers running but health not yet green — wait for it
+                :
+              elif [[ "$BACKEND_STATE" == "restarting" || "$NGINX_STATE" == "restarting" ]]; then
+                echo "A container is restarting — may be a startup issue"
                 break
               fi
               sleep 5
               elapsed=$((elapsed + 5))
-              echo "Waiting... (${elapsed}s)"
               if (( elapsed >= timeout )); then
                 echo "Health check timed out after ${timeout}s"
                 break

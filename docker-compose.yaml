@@ -35,11 +35,11 @@ services:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/actuator/health" ]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
 
   # --- Nginx (Frontend + Reverse Proxy) ---
   nginx:
@@ -58,7 +58,7 @@ services:
       - backend
     restart: always
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost/health" ]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
