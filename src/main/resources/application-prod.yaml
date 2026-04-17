@@ -23,3 +23,6 @@ logging:
   level:
     root: WARN
     com.example.expense_tracking: INFO
+
+app:
+  allowed-origins: ${ALLOWED_ORIGINS}
