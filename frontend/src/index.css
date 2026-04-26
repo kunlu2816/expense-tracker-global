@@ -11,6 +11,12 @@
   color: #7d8fa3 !important;
   opacity: 1 !important;
 }
+
+/* Ant Design Select dark mode selected text */
+[data-theme="dark"] .ant-select-selection-item,
+[data-theme="dark"] .ant-select-selection-item-content {
+  color: #F1F5F9 !important;
+}
 :root {
   /* Primary (Stitch green) */
   --color-primary: #1cca5b;

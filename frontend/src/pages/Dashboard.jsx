@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Spin } from 'antd';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+    PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -10,6 +13,13 @@ const COLORS = ['#1cca5b', '#16a34a', '#22c55e', '#4ade80', '#86efac', '#169c4a'
 const formatCurrency = (val) =>
     new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(val || 0);
 
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+}
+
 export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [recentTxns, setRecentTxns] = useState([]);
@@ -18,9 +28,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useEffect(() => { loadData(); }, []);
 
     const loadData = async () => {
         setLoading(true);
@@ -32,31 +40,40 @@ export default function Dashboard() {
             ]);
             setStats(dashRes.data);
             setRecentTxns(txnRes.data?.content || []);
-            const expenseData = (catRes.data || [])
+            const mapped = (catRes.data || [])
                 .filter((c) => c.type === 'OUT')
                 .map((c) => ({ name: c.categoryName, value: c.total }));
-            setCategoryData(expenseData);
 
-            // Build monthly bar chart data from category summary
-            const monthData = (catRes.data || [])
-                .reduce((acc, c) => {
-                    const month = new Date().toLocaleString('en-GB', { month: 'short' });
-                    const existing = acc.find((a) => a.month === month);
-                    if (existing) {
-                        if (c.type === 'IN') existing.income += c.total;
-                        else existing.expense += c.total;
-                    } else {
-                        acc.push({ month, income: c.type === 'IN' ? c.total : 0, expense: c.type === 'OUT' ? c.total : 0 });
-                    }
-                    return acc;
-                }, []);
-            setMonthlyData(monthData.length ? monthData : [
+            const total = mapped.reduce((sum, c) => sum + c.value, 0);
+            console.log('mapped:', mapped);
+            console.log('total:', total);
+            const main = mapped.filter((c) => c.value / total >= 0.03);
+            const other = mapped.filter((c) => c.value / total < 0.03);
+            console.log('main:', main);
+            console.log('other:', other);
+
+            if (other.length > 0) {
+                const othersValue = other.reduce((sum, c) => sum + c.value, 0);
+                main.push({ name: 'Others', value: othersValue });
+            }
+
+            setCategoryData([...main]);
+
+            const monthMap = {};
+            (catRes.data || []).forEach((c) => {
+                const month = new Date().toLocaleString('en-GB', { month: 'short' });
+                if (!monthMap[month]) monthMap[month] = { month, income: 0, expense: 0 };
+                if (c.type === 'IN') monthMap[month].income += c.total;
+                else monthMap[month].expense += c.total;
+            });
+            const monthList = Object.values(monthMap);
+            setMonthlyData(monthList.length > 0 ? monthList : [
                 { month: 'Jan', income: 0, expense: 0 },
                 { month: 'Feb', income: 0, expense: 0 },
                 { month: 'Mar', income: 0, expense: 0 },
             ]);
-        } catch (error) {
-            console.error('Failed to load dashboard:', error);
+        } catch (err) {
+            console.error('Failed to load dashboard:', err);
         } finally {
             setLoading(false);
         }
@@ -75,7 +92,7 @@ export default function Dashboard() {
                     color: record.type === 'IN' ? 'var(--color-income)' : 'var(--color-expense)',
                     fontSize: '16px',
                 }}>
-                    {record.type === 'IN' ? '↑' : '↓'}
+                    {record.type === 'IN' ? '+' : '-'}
                 </div>
             ),
         },
@@ -124,20 +141,18 @@ export default function Dashboard() {
 
     return (
         <div>
-            {/* Page Title */}
             <div style={{ marginBottom: '28px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--color-text-primary)', margin: '0 0 4px' }}>
-                    Good {getGreeting()}, {stats?.userName || 'there'} 👋
+                    Good {getGreeting()}, {stats?.userName || 'there'}
                 </h1>
                 <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', margin: 0 }}>
                     Here's an overview of your finances
                 </p>
             </div>
 
-            {/* Stat Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
                 <Col xs={24} sm={8}>
-                    <div className="stat-card" style={{ cursor: 'default' }}>
+                    <div className="stat-card">
                         <div className="stat-header">
                             <div className="stat-icon"><TrendingUp size={18} /></div>
                             <span className="stat-label">Total Income</span>
@@ -165,20 +180,14 @@ export default function Dashboard() {
                 </Col>
             </Row>
 
-            {/* Charts Row */}
             <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-                {/* Pie Chart */}
                 <Col xs={24} lg={11}>
                     <Card
                         title={<span style={{ fontWeight: 600, fontSize: '15px' }}>Spending by Category</span>}
                         extra={
                             <button
                                 onClick={() => navigate('/app/transactions')}
-                                style={{
-                                    background: 'none', border: 'none', cursor: 'pointer',
-                                    color: 'var(--color-primary)', fontSize: '13px', fontWeight: 500,
-                                    display: 'flex', alignItems: 'center', gap: '4px',
-                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
                             >
                                 View all <ArrowRight size={13} />
                             </button>
@@ -196,29 +205,21 @@ export default function Dashboard() {
                                         outerRadius={90}
                                         paddingAngle={3}
                                         dataKey="value"
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(2)}%`}
                                         labelLine={{ stroke: 'var(--color-border)', strokeWidth: 1 }}
                                     >
                                         {categoryData.map((_, idx) => (
                                             <Cell key={idx} fill={COLORS[idx % COLORS.length]} strokeWidth={0} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{
-                                        border: '1px solid var(--color-border)',
-                                        borderRadius: '8px',
-                                        fontSize: '13px',
-                                    }} />
+                                    <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{ border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                                No expense data yet
-                            </div>
+                            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-muted)', fontSize: '14px' }}>No expense data yet</div>
                         )}
                     </Card>
                 </Col>
-
-                {/* Bar Chart */}
                 <Col xs={24} lg={13}>
                     <Card
                         title={<span style={{ fontWeight: 600, fontSize: '15px' }}>Income vs Expenses</span>}
@@ -230,35 +231,24 @@ export default function Dashboard() {
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                                     <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
                                     <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `£${v}`} />
-                                    <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{
-                                        border: '1px solid var(--color-border)',
-                                        borderRadius: '8px',
-                                        fontSize: '13px',
-                                    }} />
+                                    <Tooltip formatter={(val) => formatCurrency(val)} contentStyle={{ border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
                                     <Bar dataKey="income" fill="#1cca5b" radius={[4, 4, 0, 0]} name="Income" />
                                     <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} name="Expense" />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                                No data to display yet
-                            </div>
+                            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-muted)', fontSize: '14px' }}>No data to display yet</div>
                         )}
                     </Card>
                 </Col>
             </Row>
 
-            {/* Recent Transactions */}
             <Card
                 title={<span style={{ fontWeight: 600, fontSize: '15px' }}>Recent Transactions</span>}
                 extra={
                     <button
                         onClick={() => navigate('/app/transactions')}
-                        style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'var(--color-primary)', fontSize: '13px', fontWeight: 500,
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
                         See all <ArrowRight size={13} />
                     </button>
@@ -266,27 +256,11 @@ export default function Dashboard() {
                 styles={{ body: { padding: '0' }, header: { borderBottom: '1px solid var(--color-border)', padding: '16px 20px' } }}
             >
                 {recentTxns.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                        No transactions yet — add your first one!
-                    </div>
+                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)', fontSize: '14px' }}>No transactions yet — add your first one!</div>
                 ) : (
-                    <Table
-                        columns={columns}
-                        dataSource={recentTxns}
-                        rowKey="id"
-                        pagination={false}
-                        size="middle"
-                        rowStyle={{ cursor: 'default' }}
-                    />
+                    <Table columns={columns} dataSource={recentTxns} rowKey="id" pagination={false} size="middle" />
                 )}
             </Card>
         </div>
     );
-}
-
-function getGreeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'morning';
-    if (hour < 18) return 'afternoon';
-    return 'evening';
 }

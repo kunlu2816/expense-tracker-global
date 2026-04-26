@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
 import AppLayout from './components/AppLayout';
 import Dashboard from './pages/Dashboard';
@@ -15,7 +16,7 @@ import './index.css';
 const getPreferredTheme = () => {
     const stored = localStorage.getItem('theme');
     if (stored) return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return window.matchMedia('(prefers-color: scheme: dark)').matches ? 'dark' : 'light';
 };
 
 function App() {
@@ -42,10 +43,17 @@ function App() {
                 <BrowserRouter>
                     <AuthProvider>
                         <Routes>
+                            {/* Public: Landing page */}
                             <Route path="/" element={<Landing onToggleTheme={toggleTheme} themeMode={themeMode} />} />
+
+                            {/* Protected: App shell */}
                             <Route
                                 path="/app"
-                                element={<AppLayout onToggleTheme={toggleTheme} themeMode={themeMode} />}
+                                element={
+                                    <ProtectedRoute>
+                                        <AppLayout onToggleTheme={toggleTheme} themeMode={themeMode} />
+                                    </ProtectedRoute>
+                                }
                             >
                                 <Route index element={<Dashboard />} />
                                 <Route path="transactions" element={<Transactions />} />
@@ -53,6 +61,8 @@ function App() {
                                 <Route path="banks" element={<BankAccounts />} />
                                 <Route path="profile" element={<Profile />} />
                             </Route>
+
+                            {/* Fallback */}
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </AuthProvider>

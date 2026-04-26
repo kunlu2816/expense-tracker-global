@@ -50,7 +50,8 @@ const Transactions = () => {
     useEffect(() => {
         loadTransactions();
         loadCategories();
-    }, [loadTransactions]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleSubmit = async (values) => {
         setSaving(true);
@@ -248,8 +249,14 @@ const Transactions = () => {
                     <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Category is required' }]}>
                         <Input placeholder="e.g. Food, Salary, Rent" />
                     </Form.Item>
-                    <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Amount is required' }]}>
-                        <InputNumber min={0.01} step={0.01} prefix="£" style={{ width: '100%' }} placeholder="0.00" />
+                    <Form.Item
+                        name="amount"
+                        label="Amount"
+                        rules={[
+                            { required: true, message: 'Amount is required' },
+                            { validator: (_, value) => value && value > 0 ? Promise.resolve() : Promise.reject(new Error('Amount must be greater than 0')), },
+                        ]}>
+                        <InputNumber step={0.01} prefix="£" style={{ width: '100%' }} placeholder="0.00" />
                     </Form.Item>
                     <Form.Item name="description" label="Description">
                         <Input.TextArea rows={2} placeholder="Optional description" />

@@ -74,6 +74,25 @@
   color: #7d8fa3 !important;
 }
 
+[data-theme="dark"] .landing input {
+  background: #1E293B;
+}
+
+/* ---- Dark mode CSS variables for landing page ---- */
+[data-theme="dark"] .landing {
+  --lp-primary: #1cca5b;
+  --lp-primary-dark: #22d36a;
+  --lp-primary-light: rgba(28, 202, 91, 0.12);
+  --lp-primary-glow: rgba(28, 202, 91, 0.15);
+
+  --lp-bg: #0F172A;
+  --lp-bg-section: #1E293B;
+  --lp-text: #f1f5f9;
+  --lp-text-secondary: #94a3b8;
+  --lp-text-muted: #7d8fa3;
+  --lp-border: #334155;
+}
+
 /* ---- Layout ---- */
 .lp-container {
   max-width: var(--lp-max-width);

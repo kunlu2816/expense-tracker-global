@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, List, Tag, Space, Modal, Select, Spin, Empty, Table, Popconfirm, message } from 'antd';
-import {
-    PlusOutlined, SyncOutlined, LinkOutlined, DisconnectOutlined,
-    HistoryOutlined, BankOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, LinkOutlined, BankOutlined } from '@ant-design/icons';
 import { RefreshCw, History, Unlink } from 'lucide-react';
 import api from '../api/axios';
 
-const BankAccounts = () => {
+const statusColor = {
+    LINKED: 'green',
+    PENDING: 'orange',
+    EXPIRED: 'red',
+    ERROR: 'red',
+};
+
+export default function BankAccounts() {
     const [accounts, setAccounts] = useState([]);
     const [institutions, setInstitutions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,63 +25,45 @@ const BankAccounts = () => {
     const [linking, setLinking] = useState(false);
     const [syncing, setSyncing] = useState({});
 
+    useEffect(() => { loadAccounts(); }, []);
+
     const loadAccounts = async () => {
         setLoading(true);
         try {
             const response = await api.get('/banks');
             setAccounts(response.data || []);
-        } catch {
-            // silently fail if not available
-        } finally {
-            setLoading(false);
-        }
+        } catch { /* silent */ }
+        finally { setLoading(false); }
     };
 
     const loadInstitutions = async (country = 'GB') => {
         try {
             const response = await api.get('/banks/institutions', { params: { country } });
             setInstitutions(response.data || []);
-        } catch {
-            // silently fail
-        }
+        } catch { /* silent */ }
     };
 
-    useEffect(() => {
-        loadAccounts();
-    }, []);
-
     const handleLink = async () => {
-        if (!selectedInstitution) {
-            return;
-        }
+        if (!selectedInstitution) return;
         setLinking(true);
         try {
             const response = await api.post('/banks/link', {
                 institutionId: selectedInstitution,
                 countryCode: selectedCountry,
             });
-            if (response.data?.link) {
-                window.location.href = response.data.link;
-            }
-        } catch {
-            // silently fail
-        } finally {
-            setLinking(false);
-        }
+            if (response.data?.link) window.location.href = response.data.link;
+        } catch { /* silent */ }
+        finally { setLinking(false); }
     };
 
     const handleSync = async (id) => {
         setSyncing((s) => ({ ...s, [id]: true }));
         try {
-            const response = await api.post(`/banks/${id}/sync`, {});
-            const data = response.data;
-            message.success(`Synced! ${data.transactionsNew || 0} new transactions`);
+            const response = await api.post(`/banks/${id}/sync`);
+            message.success(`Synced! ${response.data?.transactionsNew || 0} new transactions`);
             loadAccounts();
-        } catch (error) {
-            // silently fail
-        } finally {
-            setSyncing((s) => ({ ...s, [id]: false }));
-        }
+        } catch { /* silent */ }
+        finally { setSyncing((s) => ({ ...s, [id]: false })); }
     };
 
     const handleUnlink = async (id) => {
@@ -97,18 +83,8 @@ const BankAccounts = () => {
         try {
             const response = await api.get(`/banks/${account.id}/sync-history`, { params: { page: 0, size: 10 } });
             setSyncHistory(response.data?.content || []);
-        } catch {
-            // silently fail
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-
-    const statusColor = {
-        LINKED: 'green',
-        PENDING: 'orange',
-        EXPIRED: 'red',
-        ERROR: 'red',
+        } catch { /* silent */ }
+        finally { setHistoryLoading(false); }
     };
 
     const historyColumns = [
@@ -137,11 +113,7 @@ const BankAccounts = () => {
             ) : accounts.length === 0 ? (
                 <Card style={{ textAlign: 'center', padding: 40 }}>
                     <Empty description="No bank accounts linked yet">
-                        <Button
-                            type="primary"
-                            icon={<LinkOutlined />}
-                            onClick={() => { setLinkModalOpen(true); loadInstitutions(selectedCountry); }}
-                        >
+                        <Button type="primary" icon={<LinkOutlined />} onClick={() => { setLinkModalOpen(true); loadInstitutions(selectedCountry); }}>
                             Link Your First Bank
                         </Button>
                     </Empty>
@@ -154,36 +126,10 @@ const BankAccounts = () => {
                         <List.Item>
                             <Card
                                 actions={[
-                                    <Button
-                                        key="sync"
-                                        type="text"
-                                        icon={<RefreshCw size={14} className={syncing[account.id] ? 'spin' : ''} />}
-                                        onClick={() => handleSync(account.id)}
-                                        disabled={account.status !== 'LINKED'}
-                                    >
-                                        Sync
-                                    </Button>,
-                                    <Button
-                                        key="history"
-                                        type="text"
-                                        icon={<History size={14} />}
-                                        onClick={() => showHistory(account)}
-                                    >
-                                        History
-                                    </Button>,
-                                    <Popconfirm
-                                        key="unlink"
-                                        title="Unlink this bank?"
-                                        description="Transactions will be preserved."
-                                        onConfirm={() => handleUnlink(account.id)}
-                                    >
-                                        <Button
-                                            type="text"
-                                            danger
-                                            icon={<Unlink size={14} />}
-                                        >
-                                            Unlink
-                                        </Button>
+                                    <Button key="sync" type="text" icon={<RefreshCw size={14} className={syncing[account.id] ? 'spin' : ''} />} onClick={() => handleSync(account.id)} disabled={account.status !== 'LINKED'}>Sync</Button>,
+                                    <Button key="history" type="text" icon={<History size={14} />} onClick={() => showHistory(account)}>History</Button>,
+                                    <Popconfirm key="unlink" title="Unlink this bank?" description="Transactions will be preserved." onConfirm={() => handleUnlink(account.id)}>
+                                        <Button type="text" danger icon={<Unlink size={14} />}>Unlink</Button>
                                     </Popconfirm>,
                                 ]}
                             >
@@ -191,29 +137,16 @@ const BankAccounts = () => {
                                     avatar={
                                         account.institutionLogo
                                             ? <img src={account.institutionLogo} alt="" style={{ width: 40, height: 40, borderRadius: 8 }} />
-                                            : <div style={{
-                                                width: 40, height: 40, borderRadius: 8,
-                                                background: 'var(--color-primary-light)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}>
+                                            : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <BankOutlined style={{ fontSize: 18, color: 'var(--color-primary)' }} />
                                             </div>
                                     }
-                                    title={
-                                        <Space>
-                                            <span>{account.institutionName || 'Bank Account'}</span>
-                                            <Tag color={statusColor[account.status]}>{account.status}</Tag>
-                                        </Space>
-                                    }
+                                    title={<Space><span>{account.institutionName || 'Bank Account'}</span><Tag color={statusColor[account.status]}>{account.status}</Tag></Space>}
                                     description={
                                         <div>
                                             {account.maskedIban && <div>IBAN: {account.maskedIban}</div>}
                                             {account.accountName && <div>Owner: {account.accountName}</div>}
-                                            {account.lastSyncedAt && (
-                                                <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 4 }}>
-                                                    Last synced: {new Date(account.lastSyncedAt).toLocaleString()}
-                                                </div>
-                                            )}
+                                            {account.lastSyncedAt && <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 4 }}>Last synced: {new Date(account.lastSyncedAt).toLocaleString()}</div>}
                                         </div>
                                     }
                                 />
@@ -223,15 +156,7 @@ const BankAccounts = () => {
                 />
             )}
 
-            {/* Link Bank Modal */}
-            <Modal
-                title="Link a Bank Account"
-                open={linkModalOpen}
-                onCancel={() => setLinkModalOpen(false)}
-                onOk={handleLink}
-                confirmLoading={linking}
-                okText="Connect Bank"
-            >
+            <Modal title="Link a Bank Account" open={linkModalOpen} onCancel={() => setLinkModalOpen(false)} onOk={handleLink} confirmLoading={linking} okText="Connect Bank">
                 <Space direction="vertical" style={{ width: '100%', marginTop: 16 }} size="middle">
                     <div>
                         <label style={{ fontWeight: 500, marginBottom: 4, display: 'block' }}>Country</label>
@@ -258,16 +183,12 @@ const BankAccounts = () => {
                             optionFilterProp="label"
                             style={{ width: '100%' }}
                             onChange={setSelectedInstitution}
-                            options={institutions.map((inst) => ({
-                                label: inst.name,
-                                value: inst.id,
-                            }))}
+                            options={institutions.map((inst) => ({ label: inst.name, value: inst.id }))}
                         />
                     </div>
                 </Space>
             </Modal>
 
-            {/* Sync History Modal */}
             <Modal
                 title={`Sync History — ${selectedAccount?.institutionName || 'Bank'}`}
                 open={historyModalOpen}
@@ -275,17 +196,8 @@ const BankAccounts = () => {
                 footer={null}
                 width={700}
             >
-                <Table
-                    columns={historyColumns}
-                    dataSource={syncHistory}
-                    rowKey="id"
-                    loading={historyLoading}
-                    pagination={false}
-                    size="small"
-                />
+                <Table columns={historyColumns} dataSource={syncHistory} rowKey="id" loading={historyLoading} pagination={false} size="small" />
             </Modal>
         </div>
     );
-};
-
-export default BankAccounts;
+}

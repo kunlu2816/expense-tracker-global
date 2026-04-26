@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import {
-    TrendingUp, Wallet, ArrowRight,
+    TrendingUp, Wallet, PieChart, ArrowRight,
     BarChart2, ShieldCheck, Zap, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,13 +16,13 @@ const features = [
     },
     {
         icon: <BarChart2 size={24} />,
-        title: 'Sync with your bank',
+        title: 'Sync with your bank (On-going)',
         description: 'Connect your bank account and transactions flow in automatically. No manual entry needed. Always up to date.',
     },
     {
         icon: <PieChart size={24} />,
         title: 'Insights that matter',
-        description: 'Beautiful charts and reports show your spending patterns. Spot trends, find savings, and reach your goals faster.',
+        description: 'Charts and reports show your spending patterns. Spot trends, find savings, and reach your goals faster.',
     },
 ];
 
@@ -41,7 +41,7 @@ export default function Landing({ onToggleTheme, themeMode }) {
     const { login, register } = useAuth();
     const navigate = useNavigate();
 
-    // Keep data-theme in sync with parent
+    // Sync data-theme when prop changes
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', themeMode);
     }, [themeMode]);
@@ -101,6 +101,10 @@ export default function Landing({ onToggleTheme, themeMode }) {
         document.getElementById('auth')?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const scrollToFeatures = () => {
+        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
     return (
         <div className="landing">
             {/* ── SEO: Head is in index.html ── */}
@@ -124,7 +128,7 @@ export default function Landing({ onToggleTheme, themeMode }) {
                             <button className="lp-btn-primary" onClick={scrollToAuth}>
                                 Start Free <ArrowRight size={16} />
                             </button>
-                            <button className="lp-btn-secondary" onClick={scrollToAuth}>
+                            <button className="lp-btn-secondary" onClick={scrollToFeatures}>
                                 See how it works
                             </button>
                         </div>
@@ -147,7 +151,7 @@ export default function Landing({ onToggleTheme, themeMode }) {
             </div>
 
             {/* ── Features ── */}
-            <section className="lp-features">
+            <section className="lp-features" id="features">
                 <div className="lp-container">
                     <div className="lp-section-label">Features</div>
                     <h2 className="lp-section-title">Everything you need to manage your money</h2>
