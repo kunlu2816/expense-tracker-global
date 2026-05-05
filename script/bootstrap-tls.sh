@@ -28,9 +28,6 @@ EMAIL="${LETSENCRYPT_EMAIL:?Error: LETSENCRYPT_EMAIL is required. Set it in .env
 # Staging flag — use CERTBOT_STAGING=true to test without hitting rate limits
 if [[ "${CERTBOT_STAGING:-false}" == "true" ]]; then
     STAGING_FLAG="--staging"
-    echo "⚠️  CERTBOT_STAGING=true — using Let's Encrypt staging API (cert will not be trusted by browsers)"
-else
-    STAGING_FLAG=""
 fi
 
 DATA_PATH="/etc/letsencrypt"
@@ -73,7 +70,14 @@ issue_real_certs() {
         rm -rf '${DATA_PATH}/live/${DOMAIN}' '${DATA_PATH}/archive/${DOMAIN}'
     "
 
-    log "=> Requesting real Let's Encrypt certificate (${STAGING_FLAG:-production})..."
+    log "=> Requesting real Let's Encrypt certificate..."
+    local STAGING_FLAG=""
+    if [[ "$CERTBOT_FLAG" == "--staging" ]]; then
+        echo "⚠️  CERTBOT_STAGING=true — using Let's Encrypt staging API (cert will not be trusted by browsers)"
+        STAGING_FLAG="--staging"
+    else
+        STAGING_FLAG=""
+    fi
     # --non-interactive is mandatory for CI/CD — prevents interactive prompts that hang pipelines
     docker compose run --rm certbot certonly \
         --webroot \
