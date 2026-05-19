@@ -4,7 +4,10 @@ on:
   push:
     branches: [ main ]
 jobs:
-  test:
+  # ---------------------------------------------------------
+  # JOB 1: TEST & SONARCLOUD SCAN (Chấm điểm Code)
+  # ---------------------------------------------------------
+  build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
     env:
@@ -32,31 +35,89 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full git history for SonarCloud analysis
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Build & test backend
+      - name: Build & test coverage (backend)
         run: |
           chmod +x mvnw
-          ./mvnw clean package -B
+          ./mvnw clean verify jacoco:report -B
+
+      - name: SonarCloud Scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Auto-created token for SonarCloud
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Personal token from Son
+        run: |
+          ./mvnw sonar:sonar \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.qualitygate.wait=true
+
       - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend dependencies
-        run: npm ci
+
+      - name: Install dependencies & Audit (frontend)
         working-directory: frontend
-      - name: Build frontend
-        run: npm run build
-        working-directory: frontend
+        run: | 
+          npm ci
+          npm audit --audit-level=critical || true  
+
+  # ---------------------------------------------------------
+  # JOB 2: BUILD IMAGE & SCAN (Đẩy lên GHCR)
+  # ---------------------------------------------------------
+  build-image:
+    name: Build & Push Images
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Give permission for Github Actions to push to GHCR
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Metadata (Tags)
+        id: meta
+        run: |
+          echo "REPO_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Build Docker images
+        run: |
+          docker build -t ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }} .
+          docker build -t ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }} ./frontend
+      - name: Trivy Vulnerability Scan (Backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'          # Sẽ đánh rớt Pipeline nếu phát hiện lỗi
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'    # Chỉ block lỗi Critical
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
+          docker push ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
+
   deploy:
     name: Deploy to EC2
-    needs: test
+    needs: build-image
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     env:
@@ -64,7 +125,12 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
       TLS_DOMAIN: ${{ secrets.TLS_DOMAIN }}
+
     steps:
+      - name: Lowercase Repository Name
+        run: |
+          echo "REPO_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -77,7 +143,6 @@ jobs:
             cd ~/expense-tracker-global
             git fetch origin main
             git reset --hard origin/main
-            chmod +x mvnw
 
             # Write environment variables
             cat << 'ENVEOF' > .env
@@ -88,10 +153,14 @@ jobs:
             cat << 'TELEGRAMEOF' >> .env
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+            # Inject Link Image from GHCR
+            BACKEND_IMAGE=ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
+            FRONTEND_IMAGE=ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
             TELEGRAMEOF
 
-            # Build images
-            docker compose build
+            # Login GHCR in EC2 and Pull Images 
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
             docker image prune -f
 
             # Bootstrap TLS certificates (idempotent — skips if cert already valid)
@@ -155,6 +224,9 @@ jobs:
               exit 1
             }
 
+            # Lưu lại trạng thái rollback thành công
+            echo "${{ github.sha }}" > .last_successful_deploy
+            
             # Notify on successful deploy
             curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
               -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=✅ Deployed successfully: ${{ github.repository }} on ${{ github.ref_name }}%0ACommit: ${{ github.sha }}" || true

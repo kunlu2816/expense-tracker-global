@@ -20,9 +20,7 @@ services:
 
   # --- Spring Boot Backend ---
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-ghcr.io/kunlu/backend:latest} # Sẽ do Github truyền vào
     container_name: expense-backend
     environment:
       DB_URL: ${DB_URL}
@@ -52,9 +50,7 @@ services:
 
   # --- Nginx (Frontend + Reverse Proxy) ---
   nginx:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-ghcr.io/kunlu/frontend:latest}
     container_name: expense-nginx
     environment:
       TLS_DOMAIN: ${TLS_DOMAIN:-spendwiser.me}
