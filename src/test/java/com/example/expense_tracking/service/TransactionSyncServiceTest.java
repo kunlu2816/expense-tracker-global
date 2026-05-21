@@ -7,7 +7,6 @@ import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.repository.BankAccountRepository;
 import com.example.expense_tracking.repository.PlaidItemRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
-import com.plaid.client.model.TransactionModified;
 import com.plaid.client.model.RemovedTransaction;
 import com.plaid.client.model.TransactionsSyncResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,7 +108,12 @@ class TransactionSyncServiceTest {
 
         Transaction existingTx = Transaction.builder().id(1L).plaidTransactionId("tx-mod").build();
 
-        TransactionModified modTx = new TransactionModified().accountId("acc-1").transactionId("tx-mod").amount(50.0).name("Mod Tx");
+        com.plaid.client.model.Transaction modTx = new com.plaid.client.model.Transaction()
+                .accountId("acc-1")
+                .transactionId("tx-mod")
+                .amount(50.0)
+                .name("Mod Tx");
+
         RemovedTransaction remTx = new RemovedTransaction().accountId("acc-1").transactionId("tx-rem");
 
         TransactionsSyncResponse mockResponse = new TransactionsSyncResponse()

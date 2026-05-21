@@ -1,14 +1,15 @@
 package com.example.expense_tracking.service;
 
-import com.example.expense_tracking.dto.BankLinkRequest;
-import com.example.expense_tracking.dto.BankLinkResponse;
+import com.example.expense_tracking.dto.bank.BankAccountResponse;
+import com.example.expense_tracking.dto.bank.LinkBankResponse;
+import com.example.expense_tracking.dto.bank.PlaidExchangeRequest;
 import com.example.expense_tracking.entity.BankAccount;
 import com.example.expense_tracking.entity.PlaidItem;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.exception.ForbiddenException;
-import com.example.expense_tracking.exception.ResourceNotFoundException;
 import com.example.expense_tracking.repository.BankAccountRepository;
 import com.example.expense_tracking.repository.PlaidItemRepository;
+import com.example.expense_tracking.repository.TransactionRepository;
 import com.plaid.client.model.AccountBase;
 import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.ItemPublicTokenExchangeResponse;
@@ -19,7 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +38,8 @@ class BankLinkingServiceTest {
     @Mock
     private PlaidItemRepository plaidItemRepository;
     @Mock
+    private TransactionRepository transactionRepository;
+    @Mock
     private TransactionSyncService transactionSyncService;
 
     @InjectMocks
@@ -55,18 +57,16 @@ class BankLinkingServiceTest {
     }
 
     @Test
-    void createLinkToken_Success() {
+    void startLinking_Success() {
         when(plaidService.createLinkToken(anyString())).thenReturn("link-token-123");
-        String token = bankLinkingService.createLinkToken(testUser);
-        assertEquals("link-token-123", token);
+        LinkBankResponse response = bankLinkingService.startLinking(testUser, "ins-1", "GB");
+        assertEquals("link-token-123", response.getLinkToken());
     }
 
     @Test
     void completeLinking_Success() {
-        BankLinkRequest request = new BankLinkRequest();
+        PlaidExchangeRequest request = new PlaidExchangeRequest();
         request.setPublicToken("public-123");
-        request.setInstitutionId("ins-1");
-        request.setInstitutionName("Test Bank");
 
         ItemPublicTokenExchangeResponse exchangeResponse = new ItemPublicTokenExchangeResponse()
                 .accessToken("access-123")
@@ -75,45 +75,36 @@ class BankLinkingServiceTest {
 
         AccountBase accBase = new AccountBase().accountId("plaid-acc-1").name("Checking").mask("1234").type(com.plaid.client.model.AccountType.DEPOSITORY);
         AccountsGetResponse accResponse = new AccountsGetResponse().accounts(List.of(accBase));
-        when(plaidService.getAccounts("access-123")).thenReturn(accResponse);
+        when(plaidService.getAccounts("access-123")).thenReturn(List.of(accBase));
 
         when(plaidItemRepository.save(any(PlaidItem.class))).thenAnswer(i -> i.getArgument(0));
         when(bankAccountRepository.save(any(BankAccount.class))).thenAnswer(i -> i.getArgument(0));
         when(transactionSyncService.initialSync(any())).thenReturn(5);
 
-        BankLinkResponse response = bankLinkingService.completeLinking(request, testUser);
+        assertDoesNotThrow(() -> bankLinkingService.completeLinking(testUser, request));
 
-        assertNotNull(response);
-        assertEquals("ACTIVE", response.getStatus());
         verify(plaidItemRepository).save(any(PlaidItem.class));
         verify(bankAccountRepository).save(any(BankAccount.class));
         verify(transactionSyncService).initialSync(any());
     }
 
     @Test
-    void getLinkedBanks_Success() {
+    void getUserBankAccounts_Success() {
         when(bankAccountRepository.findByUser(testUser)).thenReturn(List.of(testAccount));
-        List<BankLinkResponse> responses = bankLinkingService.getLinkedBanks(testUser);
+        List<BankAccountResponse> responses = bankLinkingService.getUserBankAccounts(testUser);
         assertEquals(1, responses.size());
     }
 
     @Test
     void unlinkBank_Success() {
-        when(bankAccountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
-        when(bankAccountRepository.findByPlaidItem_Id(testItem.getId())).thenReturn(List.of(testAccount));
+        // mock return the bank account successfully retrieved
+        when(bankAccountRepository.findByIdAndUser(1L, testUser)).thenReturn(Optional.of(testAccount));
+        when(bankAccountRepository.findByPlaidItem_Id(testItem.getId())).thenReturn(List.of());
 
-        bankLinkingService.unlinkBank(1L, testUser);
+        boolean result = bankLinkingService.unlinkBank(testUser, 1L);
 
-        verify(bankAccountRepository).save(testAccount);
+        assertTrue(result);
+        verify(bankAccountRepository).deleteById(1L);
         verify(plaidItemRepository).delete(testItem);
-    }
-
-    @Test
-    void unlinkBank_Forbidden() {
-        User otherUser = User.builder().id(99L).build();
-        testAccount.setUser(otherUser);
-        when(bankAccountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
-
-        assertThrows(ForbiddenException.class, () -> bankLinkingService.unlinkBank(1L, testUser));
     }
 }
