@@ -28,6 +28,14 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<sonar.coverage.exclusions>
+			src/main/java/com/example/expense_tracking/entity/**,
+			src/main/java/com/example/expense_tracking/dto/**,
+			src/main/java/com/example/expense_tracking/config/**,
+			src/main/java/com/example/expense_tracking/exception/**,
+			src/main/java/com/example/expense_tracking/utils/**,
+			src/main/java/com/example/expense_tracking/ExpenseTrackingGlobalApplication.java
+		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
 		<dependency>
